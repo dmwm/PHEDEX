@@ -112,11 +112,19 @@ sub ParseListQueue
   my ($self,$output) = @_;
   my $result = {};
 
+  my $last_id = 0;
   for ( split /\n/, $output )
   {
     push @{$result->{RAW_OUTPUT}}, $_;
-    m%^([0-9,a-f,-]+)\s+(\S+)$% or next;
-    $result->{JOBS}{$1} = {ID => $1, STATE => $2, SERVICE => $self->{SERVICE}};
+    if ( m%^\s*Request ID:\s+([0-9,a-f,-]+)$% ) { 
+       print "ParseListQueue: something wrong, last_id is not zero ".Data::Dumper->Dump($output) if ( $last_id );
+       $last_id = $1; 
+       next; 
+    }
+    if ( m%^\s*Status:\s+(\S+)$% ) { 
+       $result->{JOBS}{$last_id} = {ID => $last_id, STATE => $1, SERVICE => $self->{SERVICE}};
+       $last_id = 0;
+    }
   }
   return $result;
 }
@@ -129,7 +137,7 @@ sub ParseSubmit
   foreach ( split /\n/, $output )
   {
     push @{$result->{RAW_OUTPUT}}, $_;
-    m%^([0-9,a-f,-]+)$% or next;
+    m%^\s*Job id:\s+([0-9,a-f,-]+)$% or next;
     $job->ID( $1 );
   }
   if ( !defined($job->ID) )
@@ -154,14 +162,16 @@ sub Command
 
   if ( $str eq 'ListQueue' )
   {
-    $cmd .= "fts-transfer-list -s $self->{SERVICE}" . $opts;
+    $cmd .= 'fts-transfer-list -o cms';
+    $cmd .= ' -s ' . $arg->Service; 
+    $cmd .= $opts;
     return $cmd;
   }
 
   if ( $str eq 'ListJob' )
   {
-    $cmd .= 'fts-transfer-status -l ';
-    $cmd .= ' --verbose' if $arg->VERBOSE;
+    $cmd .= 'fts-transfer-status -l';
+    $cmd .= ' -v ' if $arg->VERBOSE;
     $cmd .= ' -s ' . $arg->Service . ' ' . $arg->ID;
     $cmd .= $opts;
     return $cmd;
@@ -171,11 +181,12 @@ sub Command
   {
     my $priority = $arg->Priority;
     return undef unless $priority;
+    return undef unless $arg->Service;
 #   Save an interaction with the server ?
     return undef if $priority == $self->{PRIORITY};
 
     $cmd .= 'fts-setpriority';
-    if ( $arg->Service ) { $cmd .= ' -s ' . $arg->Service; }
+    $cmd .= ' -s ' . $arg->Service; 
     $cmd .= ' ' . $arg->ID . ' ' . $priority;
     $cmd .= $opts;
     return $cmd;
@@ -184,12 +195,12 @@ sub Command
   if ( $str eq 'Submit' )
   {
      my $spacetoken = $arg->{SPACETOKEN} || $self->SPACETOKEN;
-     $cmd .= "fts-transfer-submit". 
-      ' -s ' . $arg->Service .
-      ((defined $spacetoken)       ? ' -t ' . $spacetoken : "") .
-      ' -f ' . $arg->Copyjob;
-      $cmd .= $opts;
-      return $cmd;
+     $cmd .= 'fts-transfer-submit --json-submission'
+     $cmd .= ' -s ' . $arg->Service;
+     $cmd .= (defined $spacetoken)  ? ' -t ' . $spacetoken : '';
+     $cmd .= ' -f ' . $arg->Copyjob;
+     $cmd .= $opts;
+     return $cmd;
   }
 
   return undef;
