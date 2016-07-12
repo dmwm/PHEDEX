@@ -126,6 +126,7 @@ sub ParseListQueue
        $last_id = 0;
     }
   }
+  #print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListQueue ', Data::Dumper->Dump($result) if $self->{DEBUG};
   return $result;
 }
 
@@ -148,6 +149,7 @@ sub ParseSubmit
     $dump =~ s%\$% %g;
     push @{$result->{ERROR}}, 'JOBID=undefined, cannot monitor this job: ' . $dump;
   }
+  #print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseSubmit ', Data::Dumper->Dump($result) if $self->{DEBUG};
   return $result;
 }
 
@@ -171,7 +173,7 @@ sub Command
   if ( $str eq 'ListJob' )
   {
     $cmd .= 'fts-transfer-status -l';
-    $cmd .= ' -v ' if $arg->VERBOSE;
+    $cmd .= ' --verbose ' if $arg->VERBOSE;
     $cmd .= ' -s ' . $arg->Service . ' ' . $arg->ID;
     $cmd .= $opts;
     return $cmd;
@@ -326,7 +328,7 @@ sub ParseListJob
   }
 
   $result->{ETC} = 0;
-
+  #print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListJob ', Data::Dumper->Dump($result) if $self->{DEBUG};
   return $result;
 }
 
