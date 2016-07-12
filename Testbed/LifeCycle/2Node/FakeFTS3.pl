@@ -193,7 +193,7 @@ if ( $cmd eq 'fts-transfer-submit' )
   &output("$cache/${id}.start", &mytimeofday());
   symlink $copyjob, "$cache/$id";
   
-  print $id,"\n";
+  print "Job id: $id\n";
 }
 
 exit 0;

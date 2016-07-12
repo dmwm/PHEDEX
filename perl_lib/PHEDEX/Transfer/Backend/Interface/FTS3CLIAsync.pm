@@ -195,7 +195,7 @@ sub Command
   if ( $str eq 'Submit' )
   {
      my $spacetoken = $arg->{SPACETOKEN} || $self->SPACETOKEN;
-     $cmd .= 'fts-transfer-submit --json-submission'
+     $cmd .= 'fts-transfer-submit --json-submission';
      $cmd .= ' -s ' . $arg->Service;
      $cmd .= (defined $spacetoken)  ? ' -t ' . $spacetoken : '';
      $cmd .= ' -f ' . $arg->Copyjob;
