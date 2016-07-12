@@ -21,6 +21,7 @@ of data-methods (setters and getters) but very few behavioural methods.
 
 use strict;
 use warnings;
+use JSON::XS;
 use File::Temp qw/ tempfile tempdir /;
 
 our %params =
@@ -322,6 +323,65 @@ sub Prepare
 
   close $fh;
   return $file;
+}
+
+sub PrepareJson
+{
+  my $self = shift;
+  my ($fh,$file);
+
+  if ( $file = $self->{COPYJOB} )
+  {
+    open FH, ">$file" or die "Cannot open file $file: $!\n";
+    $fh = *FH;
+  }
+  else
+  {
+    ($fh,$file) = tempfile( undef ,
+                            UNLINK => 1,
+                            DIR => $self->{TEMP_DIR}
+                          );
+  }
+
+  print "Using temporary file $file \n";
+  $self->{COPYJOB} = $file;
+
+  my @jobfiles = map(
+                     { sources => [ $_->{SOURCE} ],
+                       destinations => [ $_->{DESTINATION} ],
+                       metadata => undef,
+                       filesize => $_->{FILESIZE},
+                       checksum => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ? $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} : undef,
+                     }, values %{ $self->{FILES} } 
+                    );
+
+  my $jobparams = {
+                   'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
+                   'reuse' =>  \0,
+                   'fail_nearline' => \0,
+                   'spacetoken' => $self->{SPACETOKEN},
+                   'bring_online' => undef,
+                   'copy_pin_lifetime' => -1,
+                   'job_metadata' => undef,
+                   'source_spacetoken' => undef,
+                   'overwrite' => \0,
+                   'gridftp' => undef
+                  };
+
+  my $copyjob = {
+                 'files'  => \@jobfiles,
+                 'params' => $jobparams,
+                };
+
+  my $jsoncopyjob = encode_json($copyjob);
+
+  print time, " prepared jsoncopyjob $jsoncopyjob \n\n";
+  $self->{JSONCOPYJOB} = $jsoncopyjob;
+
+  print $fh "$jsoncopyjob\n";
+  close $fh;
+  return $file;
+
 }
 
 =head2 ExitStates
