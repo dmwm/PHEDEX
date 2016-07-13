@@ -72,15 +72,17 @@ if ( $cmd eq 'fts-transfer-status' )
   my $status = $nactive ? "Active" : "Finished";
 
   if ( $args[1] && $args[1] eq '--verbose' ) {
-    print "Request ID:     $id\n".
-          "Status:         $status\n".
-          "Channel:        MADAGASCAR-CERN\n".
-          "Client DN:      /DC=ch/DC=cern/OU=Borg Units/OU=Users/CN=mmouse/CN=999999/CN=Mickey Mouse\n".
-          "Reason:         None\n".
-          "Submit time:    $startstamp\n".
-          "Files:          $nfiles\n".
-          "Priority:       1\n".
-          "VO Name:        cms\n".
+    print 
+          "# Using endpoint : https://fts3-pilot-fake.cern.ch:8446\n".
+          "# Client version : fake.1.0\n".
+          "Request ID:      $id\n".
+          "Status:          $status\n".
+          "Client DN:       /DC=ch/DC=cern/OU=Borg Units/OU=Users/CN=mmouse/CN=999999/CN=Mickey Mouse\n".
+          "Reason:          <None>\n".
+          "Submission time: $startstamp\n".
+          "Files:           $nfiles\n".
+          "Priority:        1\n".
+          "VOName:          cms\n".
           "        Done:           $ndone\n".
           "        Active:         $nactive\n".
           "        Pending:        0\n".
@@ -90,12 +92,16 @@ if ( $cmd eq 'fts-transfer-status' )
           "        Finishing:      0\n".
           "        Finished:       0\n".
           "        Submitted:      0\n".
+          "        Staging:        0\n".
+          "        Started:        0\n".
+          "        Delete:         0\n".
           "        Hold:           0\n".
           "        Waiting:        0\n";
   }
   else {
     print "$status\n";
   }
+
   if ( $args[0] && $args[0] eq '-l' ) {
     my $n = 0;
     foreach my $s ( sort keys %{$files} ) {
@@ -105,6 +111,7 @@ if ( $cmd eq 'fts-transfer-status' )
       print "  Source:       $s\n".
             "  Destination:  $d\n".
             "  State:        $state\n".
+            "  Staging:      0\n".
             "  Retries:      0\n".
             "  Reason:       None\n".
             "  Duration:     0\n";
