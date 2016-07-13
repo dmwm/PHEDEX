@@ -20,6 +20,7 @@ pending...
 use strict;
 use warnings;
 use base 'PHEDEX::Transfer::Backend::Interface::Glite', 'PHEDEX::Core::Logging';
+use Data::Dumper;
 use POE;
 
 our %params =
@@ -117,7 +118,7 @@ sub ParseListQueue
   {
     push @{$result->{RAW_OUTPUT}}, $_;
     if ( m%^\s*Request ID:\s+([0-9,a-f,-]+)$% ) { 
-       print "ParseListQueue: something wrong, last_id is not zero ".Data::Dumper->Dump($output) if ( $last_id );
+       print "ParseListQueue: something wrong, last_id is not zero ", Dumper($output) if ( $last_id );
        $last_id = $1; 
        next; 
     }
@@ -126,7 +127,7 @@ sub ParseListQueue
        $last_id = 0;
     }
   }
-  #print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListQueue ', Data::Dumper->Dump($result) if $self->{DEBUG};
+  print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListQueue ', Dumper($result) if $self->{DEBUG} >=2;
   return $result;
 }
 
@@ -149,7 +150,7 @@ sub ParseSubmit
     $dump =~ s%\$% %g;
     push @{$result->{ERROR}}, 'JOBID=undefined, cannot monitor this job: ' . $dump;
   }
-  #print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseSubmit ', Data::Dumper->Dump($result) if $self->{DEBUG};
+  print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseSubmit ', Dumper($result) if $self->{DEBUG} >=2;
   return $result;
 }
 
@@ -248,7 +249,7 @@ sub ParseListJob
   my ($self,$job,$output) = @_;
   my ($cmd,$state,$dst);
   my ($key,$value);
-  my (@h,$h,$preamble);
+  my (@hofh,$h,$preamble);
 
   my $result = {};
   $result->{JOB_STATE} = 'undefined';
@@ -258,43 +259,36 @@ sub ParseListJob
   my $last_key;
   my @raw = split /\n/, $output;
   @{$result->{RAW_OUTPUT}} = @raw;
-  while ( $_ = shift @raw )
-  {
-    if ( $preamble )
-    {
-      if ( m%^\s*([A-Z,a-z]+)\s*$% ) # non-verbose case
-      {
-        $state = $1;
-        $preamble = 0;
-      }
-      if ( m%^\s*Status:\s+([A-Z,a-z]+)\s*$% ) # verbose case
-      {
-        $state = $1;
-      }
-      if ( m%^\s+Source:\s+(.*)\s*$% )
-      {
-        unshift @raw, $_;
-        $preamble = 0;
-      }
-      push @{$result->{INFO}}, $_ if $preamble;
-      next;
-    }
 
-    if ( m%^\s+Source:\s+(.*)\s*$% )
-    {
-#     A 'Source' line is the first in a group for a single src->dst transfer
-      push @h, $h if $h;
-      undef $h;
-    }
-    if ( m%^\s+(\S+):\s+(.*)\s*$% )
-    {
-      $last_key = uc $1;
-      $h->{$last_key} = $2;
-    }
-    elsif ( m%\S% )
-    {
-      $h->{$last_key} .= ' ' . $_;
-    }
+  foreach ( @raw ) {
+     if ( $preamble ) {
+       if ( m%^\s*([A-Z,a-z]+)\s*$% ) { # non-verbose case
+         $state = $1;
+         $preamble = 0;
+       }
+       if ( m%^\s*Status:\s+([A-Z,a-z]+)\s*$% ) { # verbose case
+         $state = $1;
+       }
+       if ( m%^\s+Source:\s+(.*)\s*$% ) {
+         $last_key = uc "Source";
+         $h->{$last_key} = $1;
+         $preamble = 0;
+       }
+       push @{$result->{INFO}}, $_ if $preamble;
+     } else {
+       if ( m%^\s+Source:\s+(.*)\s*$% ) {
+#        A 'Source' line is the first in a group for a single src->dst transfer
+         push @hofh, $h if $h;
+         undef $h;
+       }
+       if ( m%^\s+(\S+):\s+(.*)\s*$% ) {
+         $last_key = uc $1;
+         $h->{$last_key} = $2;
+       }
+       elsif ( m%\S% ) {
+         $h->{$last_key} .= ' ' . $_;
+       }
+     }
   }
 
   if ( defined($state) )
@@ -303,12 +297,10 @@ sub ParseListJob
     $result->{JOB_STATE} = $state;
   }
 
-  push @h, $h if $h;
-  foreach $h ( @h )
-  {
+  push @hofh, $h if $h;
+  foreach $h ( @hofh ) {
 #  Be paranoid about the fields I read!
-    foreach ( qw / DESTINATION DURATION REASON RETRIES SOURCE STATE / )
-    {
+    foreach ( qw / DESTINATION DURATION REASON RETRIES SOURCE STATE / ) {
       next if defined($h->{$_});
       my $error_msg = "No \"$_\" key! : " .
 		join(', ',
@@ -328,7 +320,7 @@ sub ParseListJob
   }
 
   $result->{ETC} = 0;
-  #print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListJob ', Data::Dumper->Dump($result) if $self->{DEBUG};
+  print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListJob ', Dumper($result) if $self->{DEBUG} >=2;
   return $result;
 }
 
