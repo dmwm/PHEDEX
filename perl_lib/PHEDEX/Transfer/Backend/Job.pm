@@ -35,11 +35,14 @@ our %params =
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
 	  SPACETOKEN	=> undef,	# A space-token for this job
 	  COPYJOB	=> undef,	# Name of copyjob file
+          JSONCOPYJOB   => undef,       # Name of jsoncopyjob file
+          JSONJOB       => undef,       # json formated job
 	  WORKDIR	=> undef,	# Working directory for this job
 	  LOG           => undef,	# Internal log
 	  RAW_OUTPUT	=> undef,       # Raw output of status command
 	  SUMMARY	=> '',		# Summary of job-status so far
-	  VERBOSE	=>     0,		# Verbosity for Transfer::Backend::Interface commands
+	  VERBOSE	=> 0,		# Verbosity for Transfer::Backend::Interface commands
+          FTS_USE_JSON  => 0,           # wether use json format or not
 	);
 
 # These are not allowed to be set by the Autoloader...
@@ -342,7 +345,7 @@ sub PrepareJson
   my $self = shift;
   my ($fh,$file);
 
-  if ( $file = $self->{COPYJOB} )
+  if ( $file = $self->{JSONCOPYJOB} )
   {
     open FH, ">$file" or die "Cannot open file $file: $!\n";
     $fh = *FH;
@@ -356,7 +359,7 @@ sub PrepareJson
   }
 
   #print "Using temporary file $file \n";
-  $self->{COPYJOB} = $file;
+  $self->{JSONCOPYJOB} = $file;
 
   my @jobfiles = map(
                      { sources => [ $_->{SOURCE} ],
@@ -388,7 +391,7 @@ sub PrepareJson
   my $jsoncopyjob = encode_json($copyjob);
 
   #print time, " prepared jsoncopyjob $jsoncopyjob \n\n";
-  $self->{JSONCOPYJOB} = $jsoncopyjob;
+  $self->{JSONJOB} = $jsoncopyjob;
 
   print $fh "$jsoncopyjob\n";
   close $fh;
@@ -484,6 +487,20 @@ sub Copyjob
   my $self = shift;
   $self->{COPYJOB} = shift if @_;
   return $self->{COPYJOB};
+}
+
+=head2 JsonCopyjob
+
+Set/get the name of the C<< JSONCOPYJOB >> attribute. Should not be set once
+the job is submitted!
+
+=cut
+
+sub JsonCopyjob
+{
+  my $self = shift;
+  $self->{JSONCOPYJOB} = shift if @_;
+  return $self->{JSONCOPYJOB};
 }
 
 =head2 Workdir

@@ -40,6 +40,7 @@ sub new
     $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
     $params->{FTS_JOB_AWOL}        ||= 3600;       # Timeout for successful monitoring of a job.  0 for infinite.
     $params->{FTS_CHECKSUM_TYPE}   ||= 'adler32';  # Type of checksum to use for checksum verification in FTS
+    $params->{FTS_USE_JSON}        ||= 0;          # Whether to use json formar or not
 
     # Set argument parsing at this level.
     $options->{'service=s'}            = \$params->{FTS_SERVICE};
@@ -53,8 +54,9 @@ sub new
     $options->{'monalisa_port=i'}      = \$params->{FTS_MONALISA_PORT};
     $options->{'monalisa_cluster=s'}   = \$params->{FTS_MONALISA_CLUSTER};
     $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
-    $options->{'glite-options=s'}      =  $params->{FTS_GLITE_OPTIONS};
+    $options->{'glite-options=s'}      = \$params->{FTS_GLITE_OPTIONS};
     $options->{'job-awol=i'}           = \$params->{FTS_JOB_AWOL};
+    $options->{'use-json'}             = \$params->{FTS_USE_JSON};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -105,6 +107,7 @@ sub init
 	 ME      => 'FTS3CLI',
          VERBOSE => $self->{VERBOSE},
          DEBUG   => $self->{DEBUG},
+         FTS_USE_JSON => $self->{FTS_USE_JSON},
 	 );
 
     $self->{Q_INTERFACE} = $fts3_client;
@@ -401,25 +404,28 @@ sub start_transfer_job
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
     my %args = (
-                COPYJOB    => "$dir/jsoncopyjob",
-		WORKDIR	   => $dir,
-		FILES	   => \%files,
-		VERBOSE	   => 1,
-		PRIORITY   => $avg_priority,
-		TIMEOUT	   => $self->{FTS_JOB_AWOL},
-		SPACETOKEN => $spacetoken,
+                COPYJOB      => "$dir/copyjob",
+                JSONCOPYJOB  => "$dir/jsoncopyjob",
+		WORKDIR	     => $dir,
+		FILES	     => \%files,
+		VERBOSE	     => $self->{VERBOSE},
+		PRIORITY     => $avg_priority,
+		TIMEOUT	     => $self->{FTS_JOB_AWOL},
+		SPACETOKEN   => $spacetoken,
                 FTS_CHECKSUM => $self->{FTS_CHECKSUM},
+                FTS_USE_JSON => $self->{FTS_USE_JSON}
 		);
     my $ftsjob = PHEDEX::Transfer::Backend::Job->new(%args); # note:  this is an "FTS job"
     $ftsjob->Log('backend: ' . ref($self));
 
     eval {
         $self->Dbgmsg('calling Job -> PrepareJson') if $self->{DEBUG}; 
+        $ftsjob->Prepare();
         $ftsjob->PrepareJson();
     };
     
     if ($@) {
-	my $reason = "Cannot create json for copyjob";
+	my $reason = "Cannot create copyjob";
 	$ftsjob->Log("$reason\n$@");
 	foreach my $file ( values %files ) {
 	    $file->Reason($reason);
@@ -427,7 +433,7 @@ sub start_transfer_job
 	}
     }
 
-    $self->Dbgmsg("Using copyjob file $ftsjob->{COPYJOB} which containts $ftsjob->{JSONCOPYJOB}\n") if $self->{DEBUG};
+    $self->Dbgmsg("Using copyjob file $ftsjob->{COPYJOB} and $ftsjob->{JSONCOPYJOB} which containts $ftsjob->{JSONJOB}\n") if $self->{DEBUG};
 
     # now get FTS service for the job
     # we take a first file in the job and determine

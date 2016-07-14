@@ -26,7 +26,7 @@ $debug = $ENV{PHEDEX_FTS_DEBUG} || 0;
 sub getFiles
 {
   my $id = shift;
-  my $json_text = do {
+  my $file_data = do {
     open JOB, "<$cache/$id" or do {
       $debug && print "JobID=$id not in cache: $!\n";
       print "Failed\n";
@@ -37,12 +37,21 @@ sub getFiles
   };
   close JOB;
 
-  my $data = decode_json($json_text);
   my $h;
+  eval {
+    my $data = decode_json($file_data);
+    # if multiple files, use just the first one
+    for my $data_files (@{$data->{files}}) {
+      $h->{@{$data_files->{sources}}[0]} = @{$data_files->{destinations}}[0];
+    }
+  };
 
-  # if multiple files, use just the first one
-  for my $data_files (@{$data->{files}}) {
-    $h->{@{$data_files->{sources}}[0]} = @{$data_files->{destinations}}[0];
+  if ($@) {
+     #$debug && print "# $id is not a json job\n";
+     for ( split /\n/, $file_data ) {
+        m%^(\S+)\s+(\S+)$% or next;
+        $h->{$1} = $2;
+     }
   }
 
   ($debug >=2 ) && print Dumper($h);
@@ -192,7 +201,7 @@ if ( $cmd eq 'fts-transfer-submit' )
   &output("$cache/${id}.start", &mytimeofday());
   symlink $copyjob, "$cache/$id";
   
-  print "Job id: $id\n";
+  print "$id\n";
 }
 
 exit 0;

@@ -39,6 +39,7 @@ our %params =
 	  DEBUG		=> 0,
 	  VERBOSE	=> 0,
 	  POCO_DEBUG	=> $ENV{POCO_DEBUG} || 0, # Specially for PoCo::Child
+          FTS_USE_JSON  => 0,           # Wheter use json format or not
 	);
 
 our %states =
@@ -139,7 +140,7 @@ sub ParseSubmit
   foreach ( split /\n/, $output )
   {
     push @{$result->{RAW_OUTPUT}}, $_;
-    m%^\s*Job id:\s+([0-9,a-f,-]+)$% or next;
+    m%^\s*([0-9,a-f,-]+)$% or next;
     $job->ID( $1 );
   }
   if ( !defined($job->ID) )
@@ -197,11 +198,12 @@ sub Command
 
   if ( $str eq 'Submit' )
   {
-     my $spacetoken = $arg->{SPACETOKEN} || $self->SPACETOKEN;
-     $cmd .= 'fts-transfer-submit --json-submission';
+     my $spacetoken = $arg->{SPACETOKEN} || $self->{SPACETOKEN};
+     my $use_json   = $arg->{FTS_USE_JSON} || $self->{FTS_USE_JSON};
+     $cmd .= 'fts-transfer-submit';
      $cmd .= ' -s ' . $arg->Service;
      $cmd .= (defined $spacetoken)  ? ' -t ' . $spacetoken : '';
-     $cmd .= ' -f ' . $arg->Copyjob;
+     $cmd .= ($use_json) ? ' --json-submission -f '. $arg->JsonCopyjob : ' -f ' . $arg->Copyjob; 
      $cmd .= $opts;
      return $cmd;
   }
