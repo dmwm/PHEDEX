@@ -366,7 +366,7 @@ sub PrepareJson
                        destinations => [ $_->{DESTINATION} ],
                        metadata => undef,
                        filesize => $_->{FILESIZE},
-                       checksum => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ? $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} : undef,
+                       checksums => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ? $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} : undef,
                      }, values %{ $self->{FILES} } 
                     );
 
@@ -384,8 +384,8 @@ sub PrepareJson
                   };
 
   my $copyjob = {
-                 'files'  => \@jobfiles,
-                 'params' => $jobparams,
+                 'Files'  => \@jobfiles #,
+                 #'params' => $jobparams, # parser does not recognize this
                 };
 
   my $jsoncopyjob = encode_json($copyjob);
