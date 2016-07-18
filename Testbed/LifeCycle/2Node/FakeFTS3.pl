@@ -41,7 +41,7 @@ sub getFiles
   eval {
     my $data = decode_json($file_data);
     # if multiple files, use just the first one
-    for my $data_files (@{$data->{files}}) {
+    for my $data_files (@{$data->{Files}}) {
       $h->{@{$data_files->{sources}}[0]} = @{$data_files->{destinations}}[0];
     }
   };
