@@ -189,7 +189,7 @@ sub Command
 #   Save an interaction with the server ?
     return undef if $priority == $self->{PRIORITY};
 
-    $cmd .= 'fts-setpriority';
+    $cmd .= 'fts-set-priority';
     $cmd .= ' -s ' . $arg->Service; 
     $cmd .= ' ' . $arg->ID . ' ' . $priority;
     $cmd .= $opts;
