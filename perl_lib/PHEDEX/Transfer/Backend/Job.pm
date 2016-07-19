@@ -42,7 +42,7 @@ our %params =
 	  RAW_OUTPUT	=> undef,       # Raw output of status command
 	  SUMMARY	=> '',		# Summary of job-status so far
 	  VERBOSE	=> 0,		# Verbosity for Transfer::Backend::Interface commands
-          FTS_USE_JSON  => 0,           # wether use json format or not
+          FTS_USE_JSON  => 1,           # wether use json format or not
 	);
 
 # These are not allowed to be set by the Autoloader...

@@ -39,7 +39,7 @@ our %params =
 	  DEBUG		=> 0,
 	  VERBOSE	=> 0,
 	  POCO_DEBUG	=> $ENV{POCO_DEBUG} || 0, # Specially for PoCo::Child
-          FTS_USE_JSON  => 0,           # Wheter use json format or not
+          FTS_USE_JSON  => 1,           # Wheter use json format or not
 	);
 
 our %states =

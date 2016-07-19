@@ -40,7 +40,7 @@ sub new
     $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
     $params->{FTS_JOB_AWOL}        ||= 3600;       # Timeout for successful monitoring of a job.  0 for infinite.
     $params->{FTS_CHECKSUM_TYPE}   ||= 'adler32';  # Type of checksum to use for checksum verification in FTS
-    $params->{FTS_USE_JSON}        ||= 0;          # Whether to use json formar or not
+    $params->{FTS_USE_JSON}        ||= 1;          # Whether to use json formar or not
 
     # Set argument parsing at this level.
     $options->{'service=s'}            = \$params->{FTS_SERVICE};
@@ -56,7 +56,7 @@ sub new
     $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
     $options->{'glite-options=s'}      = \$params->{FTS_GLITE_OPTIONS};
     $options->{'job-awol=i'}           = \$params->{FTS_JOB_AWOL};
-    $options->{'use-json'}             = \$params->{FTS_USE_JSON};
+    $options->{'use-json=i'}           = \$params->{FTS_USE_JSON};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
