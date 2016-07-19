@@ -83,6 +83,7 @@ sub new
       $dump =~ s%$password%_censored_%g if $password;
       $self->Dbgmsg('FTS $self:  ', $dump) if $self->{DEBUG};
     }
+    $self->Dbgmsg('Transfer::FTS::new creating instance') if $self->{DEBUG};
 
 #   Enhanced debugging!
     PHEDEX::Monitoring::Process::MonitorSize('FTS',\$self);

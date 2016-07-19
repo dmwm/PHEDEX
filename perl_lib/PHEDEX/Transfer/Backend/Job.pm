@@ -21,6 +21,7 @@ of data-methods (setters and getters) but very few behavioural methods.
 
 use strict;
 use warnings;
+use JSON::XS;
 use File::Temp qw/ tempfile tempdir /;
 
 our %params =
@@ -34,11 +35,14 @@ our %params =
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
 	  SPACETOKEN	=> undef,	# A space-token for this job
 	  COPYJOB	=> undef,	# Name of copyjob file
+          JSONCOPYJOB   => undef,       # Name of jsoncopyjob file
+          JSONJOB       => undef,       # json formated job
 	  WORKDIR	=> undef,	# Working directory for this job
 	  LOG           => undef,	# Internal log
 	  RAW_OUTPUT	=> undef,       # Raw output of status command
 	  SUMMARY	=> '',		# Summary of job-status so far
-	  VERBOSE	=>     0,		# Verbosity for Transfer::Backend::Interface commands
+	  VERBOSE	=> 0,		# Verbosity for Transfer::Backend::Interface commands
+          FTS_USE_JSON  => 1,           # wether use json format or not
 	);
 
 # These are not allowed to be set by the Autoloader...
@@ -324,6 +328,77 @@ sub Prepare
   return $file;
 }
 
+=head2 PrepareJson
+
+Write a copyjob file for the job, in the way that FTS3 expects in json format.
+If the C<< Copyjob >> method has been
+called to specify a copyjob location (or it was set in the constructor)
+then that location will be used, overwriting any existing file.
+Otherwise, a new, unique filename will be generated, in the directory
+specified by C<< Tempdir >>, and the C<< COPYJOB >> attribute will be
+set accordingly.
+
+=cut
+
+sub PrepareJson
+{
+  my $self = shift;
+  my ($fh,$file);
+
+  if ( $file = $self->{JSONCOPYJOB} )
+  {
+    open FH, ">$file" or die "Cannot open file $file: $!\n";
+    $fh = *FH;
+  }
+  else
+  {
+    ($fh,$file) = tempfile( undef ,
+                            UNLINK => 1,
+                            DIR => $self->{TEMP_DIR}
+                          );
+  }
+
+  #print "Using temporary file $file \n";
+  $self->{JSONCOPYJOB} = $file;
+
+  my @jobfiles = map(
+                     { sources => [ $_->{SOURCE} ],
+                       destinations => [ $_->{DESTINATION} ],
+                       metadata => undef,
+                       filesize => $_->{FILESIZE},
+                       checksums => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ? $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} : undef,
+                     }, values %{ $self->{FILES} } 
+                    );
+
+  my $jobparams = {
+                   'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
+                   'reuse' =>  \0,
+                   'fail_nearline' => \0,
+                   'spacetoken' => $self->{SPACETOKEN},
+                   'bring_online' => undef,
+                   'copy_pin_lifetime' => -1,
+                   'job_metadata' => undef,
+                   'source_spacetoken' => undef,
+                   'overwrite' => \0,
+                   'gridftp' => undef
+                  };
+
+  my $copyjob = {
+                 'Files'  => \@jobfiles #,
+                 #'params' => $jobparams, # parser does not recognize this
+                };
+
+  my $jsoncopyjob = encode_json($copyjob);
+
+  #print time, " prepared jsoncopyjob $jsoncopyjob \n\n";
+  $self->{JSONJOB} = $jsoncopyjob;
+
+  print $fh "$jsoncopyjob\n";
+  close $fh;
+  return $file;
+
+}
+
 =head2 ExitStates
 
 return a reference to a hash keyed on known job-states. The hash values 
@@ -412,6 +487,20 @@ sub Copyjob
   my $self = shift;
   $self->{COPYJOB} = shift if @_;
   return $self->{COPYJOB};
+}
+
+=head2 JsonCopyjob
+
+Set/get the name of the C<< JSONCOPYJOB >> attribute. Should not be set once
+the job is submitted!
+
+=cut
+
+sub JsonCopyjob
+{
+  my $self = shift;
+  $self->{JSONCOPYJOB} = shift if @_;
+  return $self->{JSONCOPYJOB};
 }
 
 =head2 Workdir

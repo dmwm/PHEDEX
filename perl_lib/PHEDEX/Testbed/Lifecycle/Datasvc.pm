@@ -6,6 +6,7 @@ use POE;
 use Clone qw(clone);
 use Data::Dumper;
 use PHEDEX::CLI::UserAgent;
+use Net::SSL;
 
 our %params = (
 #	  cert_file => undef,
