@@ -3,6 +3,7 @@ package PHEDEX::CLI::UserAgent;
 use strict;
 use warnings;
 use base 'LWP::UserAgent';
+use Net::SSL;
 use Data::Dumper;
 use Getopt::Long;
 
