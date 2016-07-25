@@ -39,6 +39,7 @@ sub new
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
     $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
     $params->{FTS_JOB_AWOL}        ||= 3600;       # Timeout for successful monitoring of a job.  0 for infinite.
+    $params->{FTS_CHECKSUM}        ||= 1;          # Enable FTS checksumming (default is yes).
     $params->{FTS_CHECKSUM_TYPE}   ||= 'adler32';  # Type of checksum to use for checksum verification in FTS
     $params->{FTS_USE_JSON}        ||= 1;          # Whether to use json formar or not
 
