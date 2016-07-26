@@ -137,7 +137,7 @@ sub identifyAgent
   if ($dbh->{private_phedex_newconn})
   {
     my ($ident) = qx(ps -p $$ wwwwuh 2>/dev/null)
-      or self->Fatal("Unable to identify agent process with 'ps -p $$ wwwwuh 2>/dev/null'");
+      or $self->Fatal("Unable to identify agent process with 'ps -p $$ wwwwuh 2>/dev/null'");
     chomp($ident) if $ident;
     &dbexec($dbh, qq{
           insert into t_agent_log
