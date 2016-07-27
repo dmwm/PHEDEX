@@ -33,7 +33,7 @@ sub new
     $params->{PROTOCOLS}           ||= [ 'srm' ];  # Accepted protocols
     $params->{BATCH_FILES}         ||= 30;         # Max number of files per job
     $params->{NJOBS}               ||= 0;          # Max number of jobs.  0 for infinite.
-    $params->{LINK_PEND}           ||= 5;          # Submit to FTS until this number of files per link are "pending"
+    $params->{LINK_PEND}           ||= 50;         # Submit to FTS until this number of files per link are "pending"
     $params->{FTS_POLL_QUEUE}      ||= 0;          # Whether to poll all vs. our jobs
     $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
@@ -47,7 +47,7 @@ sub new
     $options->{'service=s'}            = \$params->{FTS_SERVICE};
     $options->{'priority=s'}           = \$params->{FTS_PRIORITY};
     $options->{'mapfile=s'}            = \$params->{FTS_MAPFILE};
-    $options->{'checksum'}             = \$params->{FTS_CHECKSUM};
+    $options->{'checksum!'}            = \$params->{FTS_CHECKSUM};
     $options->{'q_interval=i'}         = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'}         = \$params->{FTS_J_INTERVAL};
     $options->{'poll_queue=i'}         = \$params->{FTS_POLL_QUEUE};
@@ -57,7 +57,7 @@ sub new
     $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
     $options->{'glite-options=s'}      = \$params->{FTS_GLITE_OPTIONS};
     $options->{'job-awol=i'}           = \$params->{FTS_JOB_AWOL};
-    $options->{'use-json=i'}           = \$params->{FTS_USE_JSON};
+    $options->{'use-json!'}            = \$params->{FTS_USE_JSON};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
