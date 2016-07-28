@@ -1,15 +1,29 @@
 Changes for 4.2.0
 
+Changes for all Agents
+
+ - An agent unable to identify itself via 'ps' will terminate via fatal
+error, to avoid going into an unrecoverable state. The Watchdog agent
+should then restart it - fix for #1038 (previous fix in 4.1.8 did not work)
+
 Changes for Site Agents
 
+ - FileDownload agent: add support for FTS3 backend using fts3-client CLI
  - FileDownload agent: add support for Circuit awareness
- - BlockDownloadVerify agent: add gfal Namespace (using gfal2-utils)
+ - BlockDownloadVerify agent: add gfal Namespace (using gfal2-utils),
+change eos Namespace to use "eos -b" command
+
+Changes for Central Agents
+
+ - BlockAllocator agent: will not block subscriptions updates via website
+and datasvc - fix for #1032
 
 Changes for Schema
  - Fixes in privilege granting script
 
 Changes in core libraries
  - Add Tests module and corresponding scripts directory
+ - Fix SSL connection issues in PhEDEx UserAgent
 
 Changes for 4.1.8
 
