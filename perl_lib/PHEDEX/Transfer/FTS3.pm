@@ -30,7 +30,7 @@ sub new
     my $params = shift  || {};
 
     # Set my defaults where not defined by the derived class.
-    $params->{PROTOCOLS}           ||= [ 'srm' ];  # Accepted protocols
+    $params->{PROTOCOLS}           ||= [ 'srmv2' ];  # Accepted protocols
     $params->{BATCH_FILES}         ||= 30;         # Max number of files per job
     $params->{NJOBS}               ||= 0;          # Max number of jobs.  0 for infinite.
     $params->{LINK_PEND}           ||= 50;         # Submit to FTS until this number of files per link are "pending"
