@@ -9,8 +9,7 @@ try:
     import cStringIO as StringIO
 except ImportError: # python3
     import io as StringIO
-except:
-    import StringIO
+
 
 warnings.filterwarnings('ignore', 'integer argument expected, got float')
 

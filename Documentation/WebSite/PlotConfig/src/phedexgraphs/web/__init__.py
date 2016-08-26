@@ -10,8 +10,7 @@ try:
     import cStringIO as StringIO
 except ImportError: # python3
     import io as StringIO
-except:
-    import StringIO
+
 
 class TfcRule:
   
