@@ -2,9 +2,15 @@ from __future__ import print_function
 import cgi, cgitb, warnings
 cgitb.enable()
 
-import cStringIO
+
 from graphtool.base.xml_config import XmlConfig
 from graphtool.graphs.graph import draw_empty
+try:
+    import cStringIO as StringIO
+except ImportError: # python3
+    import io as StringIO
+except:
+    import StringIO
 
 warnings.filterwarnings('ignore', 'integer argument expected, got float')
 
@@ -20,7 +26,7 @@ if __name__ == '__main__':
   try:
     image = phedex_grapher.run_query( query_name, **my_input )
   except Exception as e:
-    image = cStringIO.StringIO()
+    image = StringIO.StringIO()
     draw_empty( "Error drawing graph:\n%s" % str(e), image, my_input )
     image = image.getvalue()
   print("Content-Type: image/png")
