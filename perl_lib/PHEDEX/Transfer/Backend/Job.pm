@@ -361,26 +361,30 @@ sub PrepareJson
   #print "Using temporary file $file \n";
   $self->{JSONCOPYJOB} = $file;
 
+  # be carefull undef are traslate to null strings in json, if they are not present, it is better to remove them
   my @jobfiles = map(
                      { sources => [ $_->{SOURCE} ],
                        destinations => [ $_->{DESTINATION} ],
-                       metadata => undef,
+  #                     metadata => undef,
                        filesize => $_->{FILESIZE},
                        checksums => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ? $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} : undef,
                      }, values %{ $self->{FILES} } 
                     );
+
+  #some clean up to avoid mis-interpretation of null values
+  for my $i (0 .. $#jobfiles) { delete $jobfiles[$i]{checksums} unless (defined $jobfiles[$i]{checksums}); }
 
   my $jobparams = {
                    'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
                    'reuse' =>  \0,
                    'fail_nearline' => \0,
                    'spacetoken' => $self->{SPACETOKEN},
-                   'bring_online' => undef,
+  #                 'bring_online' => undef,
                    'copy_pin_lifetime' => -1,
-                   'job_metadata' => undef,
-                   'source_spacetoken' => undef,
-                   'overwrite' => \0,
-                   'gridftp' => undef
+  #                 'job_metadata' => undef,
+  #                 'source_spacetoken' => undef,
+  #                 'gridftp' => undef,
+                   'overwrite' => \0
                   };
 
   my $copyjob = {
