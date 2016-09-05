@@ -372,7 +372,7 @@ sub PrepareJson
                     );
 
   #some clean up to avoid mis-interpretation of null values
-  for my $i (0 .. $#jobfiles) { delete $jobfiles[$i]{checksums} unless (defined $jobfiles[$i]{checksums}); }
+  foreach (@jobfiles) { delete $_->{checksums} unless (defined $_->{checksums}); }
 
   my $jobparams = {
                    'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
