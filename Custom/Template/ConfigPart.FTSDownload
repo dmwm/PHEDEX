@@ -12,9 +12,7 @@
 source $PHEDEX_GLITE_ENV;
 unset X509_USER_KEY X509_USER_CERT;
 export X509_USER_PROXY=${PHEDEX_X509_USER_PROXY};
-export GLITE_SD_PLUGIN;
-TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
-TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SERVICE});
+FTS_SERVER=https://fts3.cern.ch:8446;
 
 ### AGENT LABEL=download-t1 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
@@ -24,9 +22,8 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,-d,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'rfio'
  -verbose
- -backend         FTS
- -service         ${TIER0_FTS_SERVER}
- -ftspass         /data/DBAccessInfo/ftspass
+ -backend         FTS3
+ -service         ${FTS_SERVER}
  -protocols       'srmv2','srm'
  -batch-files           2
  -max-active-files      100
@@ -40,8 +37,8 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,-d,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'rfio'
  -verbose
- -backend         FTS
- -service         ${TIER2_FTS_SERVER}
+ -backend         FTS3
+ -service         ${FTS_SERVER}
  -protocols       'srmv2','srm'
  -batch-files           5
  -max-active-files      100
@@ -51,4 +48,4 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -protocol        'srm'
+ -protocol        'srmv2'
