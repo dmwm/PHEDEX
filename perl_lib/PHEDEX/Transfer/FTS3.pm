@@ -37,7 +37,7 @@ sub new
     $params->{FTS_POLL_QUEUE}      ||= 0;          # Whether to poll all vs. our jobs
     $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
-    $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
+    $params->{FTS_OPTIONS}         ||= {};	   # Specific options for fts commands
     $params->{FTS_JOB_AWOL}        ||= 3600;       # Timeout for successful monitoring of a job.  0 for infinite.
     $params->{FTS_CHECKSUM}        ||= 1;          # Enable FTS checksumming (default is yes).
     $params->{FTS_CHECKSUM_TYPE}   ||= 'adler32';  # Type of checksum to use for checksum verification in FTS
@@ -55,7 +55,7 @@ sub new
     $options->{'monalisa_port=i'}      = \$params->{FTS_MONALISA_PORT};
     $options->{'monalisa_cluster=s'}   = \$params->{FTS_MONALISA_CLUSTER};
     $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
-    $options->{'glite-options=s'}      = \$params->{FTS_GLITE_OPTIONS};
+    $options->{'fts-options=s'}        = $params->{FTS_OPTIONS};
     $options->{'job-awol=i'}           = \$params->{FTS_JOB_AWOL};
     $options->{'use-json!'}            = \$params->{FTS_USE_JSON};
 
@@ -104,7 +104,7 @@ sub init
     my $fts3_client = PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync->new
 	(
 	 SERVICE => $self->{FTS_SERVICE},
-	 OPTIONS => $self->{FTS_GLITE_OPTIONS},
+	 OPTIONS => $self->{FTS_OPTIONS},
 	 ME      => 'FTS3CLI',
          VERBOSE => $self->{VERBOSE},
          DEBUG   => $self->{DEBUG},
