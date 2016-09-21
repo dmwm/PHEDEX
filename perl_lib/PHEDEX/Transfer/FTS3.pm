@@ -16,7 +16,6 @@ use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Formats;
 use PHEDEX::Monalisa;
-use PHEDEX::CLI::UserAgent;
 use POE;
 
 sub new
