@@ -136,8 +136,12 @@ sub identifyAgent
   # new database connection into the logging table.
   if ($dbh->{private_phedex_newconn})
   {
-    my ($ident) = qx(ps -p $$ wwwwuh 2>/dev/null)
-      or $self->Fatal("Unable to identify agent process with 'ps -p $$ wwwwuh 2>/dev/null'");
+    my $ident = qx(ps -p $$ wwwwuh 2>/dev/null);
+    $self->Fatal("Unable to identify agent process: failed to launch 'ps -p $$ wwwwuh 2>/dev/null': $!")
+	unless defined $ident;
+    $self->Fatal("Unable to identify agent process with 'ps -p $$ wwwwuh 2>/dev/null': $?")
+        unless $ident;
+      
     chomp($ident) if $ident;
     &dbexec($dbh, qq{
           insert into t_agent_log
