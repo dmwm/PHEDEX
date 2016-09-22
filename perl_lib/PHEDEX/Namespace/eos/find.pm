@@ -1,5 +1,5 @@
 package PHEDEX::Namespace::eos::find;
-# Provides size and checksum as returned by the  'eos.select find' command.
+# Provides size and checksum as returned by the  'eos find' command.
 use strict;
 use warnings;
 use Time::Local;
@@ -13,8 +13,8 @@ sub new
   my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
   my $self = {
-	       cmd	=> 'eos.select',
-	       opts	=> ['find', '-f', '--size', '--checksum'],
+	       cmd	=> 'eos',
+	       opts	=> ['-b', 'find', '-f', '--size', '--checksum'],
              };
   bless($self, $class);
   $self->{ENV} = $h->{ENV} || '';

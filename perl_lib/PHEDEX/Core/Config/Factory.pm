@@ -138,7 +138,7 @@ sub createLimits
 {
   my $self = shift;
   delete $self->{_limits};
-  if ( ref($self->{LIMIT}) ne 'ARRAY' ) {
+  if ( defined $self->{LIMIT} and ref($self->{LIMIT}) ne 'ARRAY' ) {
     $self->{LIMIT} = [ $self->{LIMIT} ];
   }
   foreach ( @{$self->{LIMIT}} )

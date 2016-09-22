@@ -13,7 +13,7 @@ case $context in
    gfal-rm "$pfn";
    # Check if file still exists after the deletion
    filestatus=$(gfal-ls "$pfn" 2>&1);
-   if [ "$filestatus" = 'gfal-ls: error: No such file or directory' ]; then
+   if [[ "$filestatus" =~ ^gfal-ls:?\ error:\ 2?\ ?\(?No\ such\ file\ or\ directory\)? ]]; then
        echo "file no longer exists, deletion successful";
        exit 0;
    else

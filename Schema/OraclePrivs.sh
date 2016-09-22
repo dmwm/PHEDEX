@@ -45,8 +45,9 @@ for role in \
 
   for table in \
     $((echo "select table_name from user_tables;"
-       echo "select sequence_name from user_sequences;") |
-      sqlplus -S "$connect" | awk '/^(T|SEQ)_[A-Z0-9_]+/ { print $1 } {}'); do
+       echo "select sequence_name from user_sequences;"
+       echo "select object_name from user_procedures;") |
+      sqlplus -S "$connect" | awk '/^(T|SEQ|PROC)_[A-Z0-9_]+/ { print $1 } {}'); do
 
     echo "revoke all on $table from $reader;"
     echo "revoke all on $table from $writer;"
@@ -80,14 +81,6 @@ for role in \
         echo "grant select on $table to $writer;"
 	echo "grant select, update, delete on $table to $role;" ;;   
 
-      T_DPS_DATASET:*_OPS*_* )
-        # update on is_open, to allow by-hand fixes
-        echo "grant update(is_open) on $table to $role;" ;;
-
-      T_DPS_SUBS_PARAM:*_OPS*_* )
-        # update on custodiality, to allow by-hand fixes
-        echo "grant update(is_custodial) on $table to $role;" ;;
-
       T_DPS_*:*_OPS*_* | \
       T_DVS_*:*_OPS*_* | \
       T_LOADTEST_PARAM:*_OPS*_* | \
@@ -97,6 +90,10 @@ for role in \
         echo; echo "grant select on $table to $reader;"
 	echo "grant select on $table to $writer;"
 	echo "grant delete, insert, select, update on $table to $role;" ;;
+
+      PROC_ADD_NODE:*_OPS*_* )
+	# Execute procedure to create new nodes
+	echo; echo "grant execute on $table to $role;" ;;
 
       T_DVS_BLOCK:*_WEBSITE_* | \
       T_REQ_*:*_WEBSITE_* | \

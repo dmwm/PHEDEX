@@ -5,6 +5,7 @@ use PHEDEX::Web::SQLSpace;
 use Data::Dumper;
 use URI::Escape;
 use PHEDEX::Web::Util;
+use POSIX;
 
 =pod
 
@@ -22,7 +23,8 @@ insert node storage info into Oracle for later query
  optional inputs: strict
 
   node             node name
-  timestamp        the date for the storage info(unix time)
+  timestamp        the date for the storage info in seconds since epoch (unix time), 
+                   note: timestamps for dates in the future are not accepted
   strict           allow overwrite or not(0 or 1), the default is strict(1)
   dirinfo          the directory and its size, could be multiple, the format:
                    "/store/mc"=1000000000
@@ -55,7 +57,7 @@ sub storageinsert
        $h{$_} = $args{$_};
        delete($args{$_});
   }
-  $h{strict} = 0 unless defined $h{strict};
+  $h{strict} = 1 unless defined $h{strict};
 
   my %args_former;
   eval {
@@ -65,7 +67,7 @@ sub storageinsert
                 spec =>
                 {
                     node => { using => 'node' },
-                    timestamp => { using => 'time' },
+                    timestamp => { using => 'int' },
                     strict => { regex => qr/^[01]$/ },
                 });
         };
@@ -82,12 +84,22 @@ sub storageinsert
 
   $node = $args_former{node};
 
-  $timestamp = PHEDEX::Core::Timing::str2time($args_former{timestamp});
+  $timestamp = $args_former{timestamp};
 
+  # Reject timestamps indicating dates in the future, allowing a 
+  # 1 hour 15 minutes window for clock skew, connection overhead and 
+  # day-light-savings (4500 sec = 60*75 )
+
+  if ( int ($timestamp) > time() + 4500 ) {
+      my ($input, $message);
+      $input = strftime("%Y-%m-%d %H:%M:%S",localtime($timestamp));
+      $message = "Timestamp \"" . $timestamp . "\" indicates date in the future: " . $input;
+      return PHEDEX::Web::Util::http_error(400, $message);
+  }
   while ( ($k,$v) = each %args ) {
-    #warn "dumping k ",Data::Dumper->Dump([ $k ]);
-    $k =~ m%^/.*$% || return PHEDEX::Web::Util::http_error(400,'directory full pathname should start with slash');
-    $v =~ m%^\d+$%              || return PHEDEX::Web::Util::http_error(400,'directory size not numerical');
+      #warn "dumping k ",Data::Dumper->Dump([ $k ]);
+      $k =~ m%^/.*$% || return PHEDEX::Web::Util::http_error(400,'directory full pathname should start with slash');
+      $v =~ m%^\d+$%              || return PHEDEX::Web::Util::http_error(400,'directory size not numerical');
   } 
 
   die PHEDEX::Web::Util::http_error(401,"Certificate authentication failed") unless $core->{SECMOD}->isCertAuthenticated();

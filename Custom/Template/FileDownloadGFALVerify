@@ -104,8 +104,10 @@ if $do_checksum && [ $validity = 0 ]; then
     disksumtype="ADLER32"
     dbAdler=$(parseDBChecksum $checksum)
     if [ $dbAdler ]; then
+	dbAdler=0x$dbAdler
 	disksum=$(getChecksum $pfn $disksumtype)
-	[ X"$disksum" != X"$dbAdler" ] && echo "checksum mismatch disk=$disksum db=$dbAdler diskalgo=$disksumtype" && validity=3
+	disksum=0x$disksum
+	[ $((disksum)) -ne $((dbAdler)) ] && echo "checksum mismatch disk=$disksum db=$dbAdler diskalgo=$disksumtype" && validity=3
     else
 	echo "DB adler32 checksum missing, skipping checksum verification"
     fi

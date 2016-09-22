@@ -11,12 +11,11 @@ use JSON::XS;
 use PHEDEX::Transfer::Backend::Job;
 use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
-use PHEDEX::Transfer::Backend::Interface::GliteAsync;
+use PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Formats;
 use PHEDEX::Monalisa;
-use PHEDEX::CLI::UserAgent;
 use POE;
 
 sub new
@@ -30,22 +29,24 @@ sub new
     my $params = shift  || {};
 
     # Set my defaults where not defined by the derived class.
-    $params->{PROTOCOLS}           ||= [ 'srm' ];  # Accepted protocols
+    $params->{PROTOCOLS}           ||= [ 'srmv2' ];  # Accepted protocols
     $params->{BATCH_FILES}         ||= 30;         # Max number of files per job
     $params->{NJOBS}               ||= 0;          # Max number of jobs.  0 for infinite.
-    $params->{LINK_PEND}           ||= 5;          # Submit to FTS until this number of files per link are "pending"
+    $params->{LINK_PEND}           ||= 50;         # Submit to FTS until this number of files per link are "pending"
     $params->{FTS_POLL_QUEUE}      ||= 0;          # Whether to poll all vs. our jobs
     $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
-    $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
+    $params->{FTS_OPTIONS}         ||= {};	   # Specific options for fts commands
     $params->{FTS_JOB_AWOL}        ||= 3600;       # Timeout for successful monitoring of a job.  0 for infinite.
+    $params->{FTS_CHECKSUM}        ||= 1;          # Enable FTS checksumming (default is yes).
     $params->{FTS_CHECKSUM_TYPE}   ||= 'adler32';  # Type of checksum to use for checksum verification in FTS
+    $params->{FTS_USE_JSON}        ||= 1;          # Whether to use json formar or not
 
     # Set argument parsing at this level.
     $options->{'service=s'}            = \$params->{FTS_SERVICE};
     $options->{'priority=s'}           = \$params->{FTS_PRIORITY};
     $options->{'mapfile=s'}            = \$params->{FTS_MAPFILE};
-    $options->{'checksum'}             = \$params->{FTS_CHECKSUM};
+    $options->{'checksum!'}            = \$params->{FTS_CHECKSUM};
     $options->{'q_interval=i'}         = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'}         = \$params->{FTS_J_INTERVAL};
     $options->{'poll_queue=i'}         = \$params->{FTS_POLL_QUEUE};
@@ -53,8 +54,9 @@ sub new
     $options->{'monalisa_port=i'}      = \$params->{FTS_MONALISA_PORT};
     $options->{'monalisa_cluster=s'}   = \$params->{FTS_MONALISA_CLUSTER};
     $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
-    $options->{'glite-options=s'}      =  $params->{FTS_GLITE_OPTIONS};
+    $options->{'fts-options=s'}        = $params->{FTS_OPTIONS};
     $options->{'job-awol=i'}           = \$params->{FTS_JOB_AWOL};
+    $options->{'use-json!'}            = \$params->{FTS_USE_JSON};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -83,13 +85,14 @@ sub new
       my $dump = Dumper($self);
       my $password = $self->{FTS_Q_MONITOR}{Q_INTERFACE}{PASSWORD};
       $dump =~ s%$password%_censored_%g if $password;
-      $self->Dbgmsg('FTS $self:  ', $dump) if $self->{DEBUG};
+      $self->Dbgmsg('FTS3 $self:  ', $dump) if $self->{DEBUG};
     }
+    $self->Dbgmsg('Transfer::FTS3::new creating instance') if $self->{DEBUG};
 
 #   Enhanced debugging!
-    PHEDEX::Monitoring::Process::MonitorSize('FTS',\$self);
+    PHEDEX::Monitoring::Process::MonitorSize('FTS3',\$self);
     PHEDEX::Monitoring::Process::MonitorSize('QMon',\$self->{FTS_Q_MONITOR});
-    PHEDEX::Monitoring::Process::MonitorSize('GLite',\$self->{FTS_Q_MONITOR}{Q_INTERFACE});
+    PHEDEX::Monitoring::Process::MonitorSize('FTS3CLI',\$self->{FTS_Q_MONITOR}{Q_INTERFACE});
     return $self;
 }
 
@@ -97,14 +100,17 @@ sub init
 {
     my ($self) = @_;
 
-    my $glite = PHEDEX::Transfer::Backend::Interface::GliteAsync->new
+    my $fts3_client = PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync->new
 	(
 	 SERVICE => $self->{FTS_SERVICE},
-	 OPTIONS => $self->{FTS_GLITE_OPTIONS},
-	 ME      => 'GLite',
+	 OPTIONS => $self->{FTS_OPTIONS},
+	 ME      => 'FTS3CLI',
+         VERBOSE => $self->{VERBOSE},
+         DEBUG   => $self->{DEBUG},
+         FTS_USE_JSON => $self->{FTS_USE_JSON},
 	 );
 
-    $self->{Q_INTERFACE} = $glite;
+    $self->{Q_INTERFACE} = $fts3_client;
 
     my $monalisa;
     my $use_monalisa = 1;
@@ -128,7 +134,7 @@ sub init
 
     my $q_mon = PHEDEX::Transfer::Backend::Monitor->new
 	(
-	 Q_INTERFACE   => $glite,
+	 Q_INTERFACE   => $fts3_client,
 	 Q_INTERVAL    => $self->{FTS_Q_INTERVAL},
 	 J_INTERVAL    => $self->{FTS_J_INTERVAL},
 	 POLL_QUEUE    => $self->{FTS_POLL_QUEUE},
@@ -206,7 +212,8 @@ sub parseFTSmap {
     }
 
     $self->{FTS_MAP} = $map;
-    
+    $self->Dbgmsg('Transfer::FTS3::parseFTSmap '.$map) if $self->{DEBUG};
+   
     return 0;
 }
 
@@ -231,6 +238,7 @@ sub getFTSService {
 
     # fall back to command line option
     $service ||= $self->{FTS_SERVICE};
+    $self->Dbgmsg('Transfer::FTS3::getFTSService '.$service) if $self->{DEBUG};
 
     return $service;
 }
@@ -260,7 +268,7 @@ sub isBusy
 	    }
 	}
 
-	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from -> $to: ",
+	$self->Dbgmsg("Transfer::FTS3::isBusy Link Stats $from -> $to: ",
 		      join(' ', map { "$_=$state_counts{$_}" } sort keys %state_counts))
 	    if $self->{DEBUG};
 
@@ -396,55 +404,28 @@ sub start_transfer_job
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
     my %args = (
-		WORKDIR	   => $dir,
-		FILES	   => \%files,
-		VERBOSE	   => 1,
-		PRIORITY   => $avg_priority,
-		TIMEOUT	   => $self->{FTS_JOB_AWOL},
-		SPACETOKEN => $spacetoken,
+                COPYJOB      => "$dir/copyjob",
+                JSONCOPYJOB  => "$dir/jsoncopyjob",
+		WORKDIR	     => $dir,
+		FILES	     => \%files,
+		VERBOSE	     => $self->{VERBOSE},
+		PRIORITY     => $avg_priority,
+		TIMEOUT	     => $self->{FTS_JOB_AWOL},
+		SPACETOKEN   => $spacetoken,
+                FTS_CHECKSUM => $self->{FTS_CHECKSUM},
+                FTS_USE_JSON => $self->{FTS_USE_JSON}
 		);
     my $ftsjob = PHEDEX::Transfer::Backend::Job->new(%args); # note:  this is an "FTS job"
     $ftsjob->Log('backend: ' . ref($self));
 
-    my $jsoncopyjob;
-
     eval {
-    
-	my @jobfiles = map( 
-			    { sources => [ $_->{SOURCE} ],
-			      destinations => [ $_->{DESTINATION} ],
-			      metadata => undef,
-			      filesize => $_->{FILESIZE},
-			      checksum => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ?
-				            $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} :
-					    undef,
-			  }, 
-			    values %{ $ftsjob->{FILES} } );
-	
-	my $jobparams = {
-	    'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
-	    'reuse' =>  \0,
-	    'fail_nearline' => \0,
-	    'spacetoken' => $spacetoken,
-	    'bring_online' => undef,
-	    'copy_pin_lifetime' => -1,
-	    'job_metadata' => undef,
-	    'source_spacetoken' => undef,
-	    'overwrite' => \0,
-	    'gridftp' => undef
-	    };
-
-	my $copyjob = {
-	    'files'  => \@jobfiles,
-	    'params' => $jobparams,
-	};
-	
-	$jsoncopyjob = encode_json($copyjob);
-	
+        $self->Dbgmsg('calling Job -> PrepareJson') if $self->{DEBUG}; 
+        $ftsjob->Prepare();
+        $ftsjob->PrepareJson();
     };
     
     if ($@) {
-	my $reason = "Cannot create json for copyjob";
+	my $reason = "Cannot create copyjob";
 	$ftsjob->Log("$reason\n$@");
 	foreach my $file ( values %files ) {
 	    $file->Reason($reason);
@@ -452,7 +433,7 @@ sub start_transfer_job
 	}
     }
 
-    $self->Dbgmsg("Using copyjob: ".$jsoncopyjob) if $self->{DEBUG};
+    $self->Dbgmsg("Using copyjob file $ftsjob->{COPYJOB} and $ftsjob->{JSONCOPYJOB} which containts $ftsjob->{JSONJOB}\n") if $self->{DEBUG};
 
     # now get FTS service for the job
     # we take a first file in the job and determine
@@ -469,30 +450,16 @@ sub start_transfer_job
     }
 
     $ftsjob->Service($service);
-
-    my $useragent = PHEDEX::CLI::UserAgent->new(
-						URL => $service,
-						TARGET => '/jobs',
-						CERT_FILE => $ENV{X509_USER_PROXY},
-						KEY_FILE => $ENV{X509_USER_PROXY},
-						CA_FILE => $ENV{X509_USER_PROXY},
-						CA_DIR => $ENV{X509_CERT_DIR},
-						);
-
-    # Build request, setting "Content-Type: application/json;" needed for FTS3 REST API
     
-    my $req = HTTP::Request->new(POST => $useragent->target);
-    $req->content_type('application/json');
-    $req->content($jsoncopyjob);
-
-    # POST the request
-
-    my $response = $useragent->request($req);
-
-    $self->Dbgmsg("FTS3 REST API response: \n".$response->content) if $self->{DEBUG};
+    $self->{JOBMANAGER}->addJob(
+                             $self->{JOB_SUBMITTED_POSTBACK},
+                             { JOB => $job, FTSJOB  => $ftsjob,
+                               LOGFILE => '/dev/null', KEEP_OUTPUT => 1,
+                               TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
+                             $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
+                           );
 
     # FIXME: need to parse response!!!! see fts_fob_submitted for FTS2 example
-
 }
 
 sub setup_callbacks

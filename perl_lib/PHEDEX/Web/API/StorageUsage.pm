@@ -68,9 +68,9 @@ sub storageusage  {
   my ($core, %h) = @_;
   my ($method,$inputnode,$result,@inputnodes,@records, $last, $data);
   my ($dirtemp,$dirstemp,$node);
-
   $method = $core->{REQUEST_METHOD};
   my %args;
+  # validate input parameters and set defaults: 
   eval {
         %args = &validate_params(\%h,
                 allow => [ qw ( node level rootdir time_since time_until ) ],
@@ -86,13 +86,13 @@ sub storageusage  {
         };
   if ( $@ ) {
         return PHEDEX::Web::Util::http_error(400, $@);
-  } 
-
+  }
 
   foreach ( keys %args ) {
      $args{lc($_)} = delete $args{$_};
   }
- 
+
+  # TODO: replace this with a smart check based on the topdir (/store/). 
   if ($args{level}) {
      if ($args{level} > 12) {
         die PHEDEX::Web::Util::http_error(400,"the level required is too deep");
@@ -111,146 +111,90 @@ sub storageusage  {
   if ( $args{time_until} ) {
     $args{time_until} = PHEDEX::Core::Timing::str2time($args{time_until});
   }
+  my $root=$args{rootdir};
+  my $level=$args{level};
 
-  if ($args{node} =~ m/^T\*$/) {
-     eval {
-        $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
-     };
-     if ( $@ ) {
-       die PHEDEX::Web::Util::http_error(400,$@);
-     }
-     $last = @{$result}[0]->{NAME};
-     $dirstemp = ();
-     foreach $data (@{$result}) {
-       $dirtemp = {};
-       $dirtemp->{DIR} = $data->{DIR};
-       $dirtemp->{SPACE} = $data->{SPACE};
-       $dirtemp->{TIMESTAMP} = $data->{TIMESTAMP};
-       $dirtemp->{NAME} = $data->{NAME};
-       push @$dirstemp, $dirtemp;
-       if ($last !~ m/$data->{NAME}/) {
-          $node = {};
-          $node->{subdir} = $args{rootdir};
-          $node->{node} = $last;
-          $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
-          push @records, $node;
-          $dirstemp = ();
-          $last = $data->{NAME};
-       }
-    }
-    if ($last =~ m/@{$result}[0]->{NAME}/) {
-       $node = {};
-       $node->{subdir} = $args{rootdir};
-       $node->{node} = $last;
-       $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
-       push @records, $node;
-    }
-  } 
-  else {
-     if (ref $args{node} eq 'ARRAY') {
-        @inputnodes = @{$args{node}};
-     }
-     else {
-        @inputnodes = $args{node};
-     }
-     foreach $inputnode (@inputnodes) {
-        my $node = {};
-        $args{node} = $inputnode;
-        $node->{subdir} = $args{rootdir};
-        eval {
-          $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
-        };
-        if ( $@ ) {
-          die PHEDEX::Web::Util::http_error(400,$@);
-        }
-        $node->{node} = @{$result}[0]->{NAME};
-        $node->{timebins} = getNodeInfo($core, $result, %args); 
-        push @records, $node;
-     }
+  # Query the database: 
+  eval {
+      $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
+  };
+  # NR: This is some check, leaving it in:
+  if ( $@ ) {
+      die PHEDEX::Web::Util::http_error(400,$@);
   }
-
+  # Find all node names in the returned query results:
+  my $node_names = {};
+  foreach my $data (@{$result}) {
+      $node_names->{$data->{NAME}}=1;
+  };
+  # Processing all nodes:
+  foreach my $nodename (keys %$node_names) { 
+      my $node_element = {};
+      $node_element->{'NODE'} = $nodename;
+      $node_element->{'SUBDIR'} = $root;
+      # Find all timestamps for this node:
+      my $timestamps = {};
+      foreach my $data (@{$result}) {
+	  $timestamps->{$data->{TIMESTAMP}}=1;
+      };
+      my @timebins; # Array for node aggregated data per timestamp
+      foreach my $timestamp (keys %$timestamps) { 
+	  my $timebin_element = {timestamp => $timestamp};
+	  # Pre-initialize data for all levels:
+	  my @levelsarray;
+	  for (my $i = 1; $i<= $level; $i++) {
+	      push @levelsarray, {DATA => [], LEVEL => $i};
+	  };
+	  # Filter SQL output data by rootdir, node and timestamp:
+	  my @currentdata = grep {
+	      ( $_->{DIR} =~ $root ) and
+		  ( $_->{NAME} eq $nodename ) and 
+		  ( $_->{TIMESTAMP} eq $timestamp )
+	  } @{$result};
+	  my ($cur, $reldepth);
+	  while (@currentdata) {
+	      $cur = shift @currentdata;
+	      $reldepth = checklevel($root, $cur->{DIR});
+	      # Aggregate by levels: 
+	      for ( my $i = 1; $i <= $level; $i++ ) 
+	      {
+		  if ( $reldepth <= $i ) {
+		      push @{$levelsarray[$i-1]->{DATA}},{
+			  SIZE=>$cur->{SPACE}, 
+			  DIR=>$cur->{DIR}
+		      };
+		  };
+	      };
+	  };
+	  $timebin_element->{LEVELS} = \@levelsarray;
+	  push @timebins, $timebin_element;
+      };
+      $node_element->{'TIMEBINS'} = \@timebins;
+      push @records, $node_element;
+  };
   return { nodes => \@records };
 }
 
-sub getNodeInfo {
-  my ($core, $result, %args) = @_;
-  my ($level,$rootdir,%dir, $dirs, $data);
-  my ($dirtemp, $timetemp, $dirstemp, $last, $time);
-  my ($dirarray, $dirhash, $dirhashSep, $levelarray, $levelhash, $timebin, $timebins);
-  my %temp;
-
-  $timebins = ();
-  $rootdir = $args{rootdir};
-  $level = $args{level};
-
-  # classify data by timestamp
-  $timetemp = {};
-  $last = @{$result}[0]->{TIMESTAMP};
-  #warn "dumping last ",Data::Dumper->Dump([ $last ]);
-  $dirstemp = ();
-  foreach $data (@{$result}) {
-    $dirtemp = {};
-    $dirtemp->{dir} = $data->{DIR};
-    $dirtemp->{space} = $data->{SPACE};
-    push @$dirstemp, $dirtemp;
-    $timetemp->{$data->{TIMESTAMP}} = $dirstemp;
-    if ($last != $data->{TIMESTAMP}) {
-       $dirstemp = ();
-       $last = $data->{TIMESTAMP};
+sub checklevel {
+# Takes two paths as two arguments, checks if the second arg is a subdirectory 
+# of the first arg and returns the number of how many additional directory
+# levels it contains. Otherwise returns -1.
+    my ($rootdir,$path)=@_;
+    my @p = split "/", $path;
+    my @r = split "/", $rootdir;
+    return -1 if (@p < @r);
+    my $result=1;
+    for (my $i=1; $i < @p; $i += 1) {
+	if ( ! $r[$i]){
+	    $result += 1;
+	    next;
+	}
+	if ( ($p[$i] ne $r[$i] )){
+	    return -1;
+	} 	
     }
-  }
-
-  foreach $time ( keys %{$timetemp} ) {
-    $timebin = {};
-    $timebin->{timestamp} = $time;
-    $levelarray = ();
-    for (my $i = 1; $i<= $level; $i++) {
-       $dirhash = {};
-       $dirarray = ();
-       $levelhash = {};
-       foreach $dirs ( @{$timetemp->{$time}} ) {
-         if (!$rootdir || (index($dirs->{dir},dirlevel($rootdir,$i)) == 0)) {
-            $dirhash->{dirlevel($dirs->{dir}, $i)} += $dirs->{space};
-         }
-       }
-       my $count = 0;
-       foreach ( keys %{$dirhash} ) {
-         $dirhashSep = {};
-         $dirhashSep->{dir} = $_;
-         $dirhashSep->{size} = $dirhash->{$_};
-         push @$dirarray, $dirhashSep;
-         $count = $count + 1;
-       }
-
-       if ($count==0) { $level = $i; }
-
-       if ($dirarray) {
-          $levelhash->{level} = $i;
-          $levelhash->{data} = $dirarray;
-          push @$levelarray, $levelhash;
-       }
-    }
-    $timebin->{levels} = $levelarray;
-    push @$timebins, $timebin;
-  }
-    
-  return $timebins;
-}
-
-sub dirlevel {
-  my $path=shift;
-  my $depth=shift;
-  my @tmp=();
-  if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash";}
-  $path = $path."/";
-  @tmp = split ('/', $path, $depth+2);
-  pop @tmp;
-  if (scalar(@tmp) >= 2) {
-     return join ("/", @tmp);
-  }
-  else {
-     return $path;
-  }
+    ( $rootdir eq "/" ) && ($result-=1);
+    return $result;
 }
 
 1;

@@ -1,12 +1,12 @@
-package PHEDEX::Transfer::Backend::Interface::GliteAsync;
+package PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync;
 
 =head1 NAME
 
-PHEDEX::Transfer::Backend::Interface::GliteAsync - PHEDEX::Transfer::Backend::Interface::GliteAsync Perl module
+PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync - PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync Perl module
 
 =head1 SYNOPSIS
 
-An interface to the glite- commands for the new PhEDEx transfer backend. Uses
+An interface to the fts3-cli commands for the new PhEDEx transfer backend. Uses
 POE::Component::Child to allow asynchronous use of the commands.
 
 =head1 DESCRIPTION
@@ -20,8 +20,8 @@ pending...
 use strict;
 use warnings;
 use base 'PHEDEX::Transfer::Backend::Interface::Glite', 'PHEDEX::Core::Logging';
+use Data::Dumper;
 use POE;
-#use POE::Component::Child;
 
 our %params =
 	(
@@ -32,13 +32,14 @@ our %params =
 	  VONAME	=> undef,	# Restrict to specific VO
 	  SSITE		=> undef,	# Specify source site name
 	  DSITE		=> undef,	# Specify destination site name
-	  ME		=> 'Glite',	# Arbitrary name for this object
+	  ME		=> 'FTS3CLI',	# Arbitrary name for this object
 	  PRIORITY	=> 3,		# Default piority configured in FTS channels
 	  OPTIONS	=> {},		# Per-command specific options
 	  WRAPPER	=> $ENV{PHEDEX_GLITE_WRAPPER} || '', # Command-wrapper
 	  DEBUG		=> 0,
 	  VERBOSE	=> 0,
 	  POCO_DEBUG	=> $ENV{POCO_DEBUG} || 0, # Specially for PoCo::Child
+          FTS_USE_JSON  => 1,           # Wheter use json format or not
 	);
 
 our %states =
@@ -59,14 +60,6 @@ our %weights =
 	  Waiting =>  1 + 0 * 900,
 	);
 
-#our %events = (
-#  stdout => \&_child_stdout,
-#  stderr => \&_child_stderr,
-#  error  => \&_child_error,
-#  done   => \&_child_done,
-#  died   => \&_child_died,
-#);
-
 sub new
 {
   my $proto = shift;
@@ -79,16 +72,8 @@ sub new
       } keys %params;
   $self->{DEBUGGING} = $PHEDEX::Debug::Paranoid || 0;
 
-#  $self->{CHILD_EVENTS} = \%events;
-#  my $pocodebug = $self->{POCO_DEBUG} || 0;
-#  $self->{_child} = POE::Component::Child->new(
-#         events => \%events,
-#         debug => $pocodebug,
-#        );
-#  $self->{_child}{caller} = $self;
-
   bless $self, $class;
-  $self->Dbgmsg('Transfer::Backend::Interface::GliteAsync::new creating instance') if $self->{DEBUG}; 
+  $self->Dbgmsg('Transfer::Backend::Interface::FTS3CLIAsync::new creating instance') if $self->{DEBUG};
   return $self;
 }
 
@@ -97,7 +82,7 @@ sub AUTOLOAD
   my $self = shift;
   my $attr = our $AUTOLOAD;
   $attr =~ s/.*:://;
-  $self->Dbgmsg('Transfer::Backend::Interface::GliteAsync::AUTOLOAD calling $attr') if $self->{DEBUG};
+  $self->Dbgmsg('Transfer::Backend::Interface::FTS3CLIAsync::AUTOLOAD calling $attr') if $self->{DEBUG};
   if ( exists($params{$attr}) )
   {
     $self->{$attr} = shift if @_;
@@ -111,9 +96,8 @@ sub AUTOLOAD
 =head2 ParseListQueue
 
 returns a hashref with information about all the jobs currently in the transfer
-queue for the given FTS service (i.e. the one that the Glite object knows
-about). The hash is keyed on the job-ids, the value being a subhash of ID,
-STATE, and (FTS) SERVICE names.
+queue for the given FTS service . The hash is keyed on the job-ids, the value 
+being a subhash of ID, STATE, and (FTS) SERVICE names.
 
 In the event of an error the hash contains a single key, 'ERROR', with the
 value being the text of the error message. Not very sophisticated but good
@@ -130,12 +114,21 @@ sub ParseListQueue
   my ($self,$output) = @_;
   my $result = {};
 
+  my $last_id = 0;
   for ( split /\n/, $output )
   {
     push @{$result->{RAW_OUTPUT}}, $_;
-    m%^([0-9,a-f,-]+)\s+(\S+)$% or next;
-    $result->{JOBS}{$1} = {ID => $1, STATE => $2, SERVICE => $self->{SERVICE}};
+    if ( m%^\s*Request ID:\s+([0-9,a-f,-]+)$% ) { 
+       print "ParseListQueue: something wrong, last_id is not zero ", Dumper($output) if ( $last_id );
+       $last_id = $1; 
+       next; 
+    }
+    if ( m%^\s*Status:\s+(\S+)$% ) { 
+       $result->{JOBS}{$last_id} = {ID => $last_id, STATE => $1, SERVICE => $self->{SERVICE}};
+       $last_id = 0;
+    }
   }
+  print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListQueue ', Dumper($result) if $self->{DEBUG} >=2;
   return $result;
 }
 
@@ -147,7 +140,7 @@ sub ParseSubmit
   foreach ( split /\n/, $output )
   {
     push @{$result->{RAW_OUTPUT}}, $_;
-    m%^([0-9,a-f,-]+)$% or next;
+    m%^\s*([0-9,a-f,-]+)$% or next;
     $job->ID( $1 );
   }
   if ( !defined($job->ID) )
@@ -158,6 +151,7 @@ sub ParseSubmit
     $dump =~ s%\$% %g;
     push @{$result->{ERROR}}, 'JOBID=undefined, cannot monitor this job: ' . $dump;
   }
+  print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseSubmit ', Dumper($result) if $self->{DEBUG} >=2;
   return $result;
 }
 
@@ -172,14 +166,16 @@ sub Command
 
   if ( $str eq 'ListQueue' )
   {
-    $cmd .= "glite-transfer-list -s $self->{SERVICE}" . $opts;
+    $cmd .= 'fts-transfer-list -o cms';
+    $cmd .= ' -s ' . $arg->Service; 
+    $cmd .= $opts;
     return $cmd;
   }
 
   if ( $str eq 'ListJob' )
   {
-    $cmd .= 'glite-transfer-status -l ';
-    $cmd .= ' --verbose' if $arg->VERBOSE;
+    $cmd .= 'fts-transfer-status -l';
+    $cmd .= ' --verbose ' if $arg->VERBOSE;
     $cmd .= ' -s ' . $arg->Service . ' ' . $arg->ID;
     $cmd .= $opts;
     return $cmd;
@@ -189,11 +185,12 @@ sub Command
   {
     my $priority = $arg->Priority;
     return undef unless $priority;
+    return undef unless $arg->Service;
 #   Save an interaction with the server ?
     return undef if $priority == $self->{PRIORITY};
 
-    $cmd .= 'glite-transfer-setpriority';
-    if ( $arg->Service ) { $cmd .= ' -s ' . $arg->Service; }
+    $cmd .= 'fts-set-priority';
+    $cmd .= ' -s ' . $arg->Service; 
     $cmd .= ' ' . $arg->ID . ' ' . $priority;
     $cmd .= $opts;
     return $cmd;
@@ -201,13 +198,14 @@ sub Command
 
   if ( $str eq 'Submit' )
   {
-     my $spacetoken = $arg->{SPACETOKEN} || $self->SPACETOKEN;
-     $cmd .= "glite-transfer-submit". 
-      ' -s ' . $arg->Service .
-      ((defined $spacetoken)       ? ' -t ' . $spacetoken : "") .
-      ' -f ' . $arg->Copyjob;
-      $cmd .= $opts;
-      return $cmd;
+     my $spacetoken = $arg->{SPACETOKEN} || $self->{SPACETOKEN};
+     my $use_json   = $arg->{FTS_USE_JSON} || $self->{FTS_USE_JSON};
+     $cmd .= 'fts-transfer-submit';
+     $cmd .= ' -s ' . $arg->Service;
+     $cmd .= (defined $spacetoken)  ? ' -t ' . $spacetoken : '';
+     $cmd .= ($use_json) ? ' --json-submission -f '. $arg->JsonCopyjob : ' -f ' . $arg->Copyjob; 
+     $cmd .= $opts;
+     return $cmd;
   }
 
   return undef;
@@ -216,7 +214,7 @@ sub Command
 =head2 ParseListJob
 
 Takes two arguments, a reference to a PHEDEX::Transfer::Backend::Job
-object, and the output of a glite-transfer-status command.  
+object, and the output of a fts-transfer-status command.  
 Returns a somewhat complex hashref with the result. As with ListQueue,
 the hash will contain an 'ERROR' key if something went wrong, or not if the
 command succeeded.
@@ -253,7 +251,7 @@ sub ParseListJob
   my ($self,$job,$output) = @_;
   my ($cmd,$state,$dst);
   my ($key,$value);
-  my (@h,$h,$preamble);
+  my (@hofh,$h,$preamble);
 
   my $result = {};
   $result->{JOB_STATE} = 'undefined';
@@ -263,43 +261,36 @@ sub ParseListJob
   my $last_key;
   my @raw = split /\n/, $output;
   @{$result->{RAW_OUTPUT}} = @raw;
-  while ( $_ = shift @raw )
-  {
-    if ( $preamble )
-    {
-      if ( m%^\s*([A-Z,a-z]+)\s*$% ) # non-verbose case
-      {
-        $state = $1;
-        $preamble = 0;
-      }
-      if ( m%^\s*Status:\s+([A-Z,a-z]+)\s*$% ) # verbose case
-      {
-        $state = $1;
-      }
-      if ( m%^\s+Source:\s+(.*)\s*$% )
-      {
-        unshift @raw, $_;
-        $preamble = 0;
-      }
-      push @{$result->{INFO}}, $_ if $preamble;
-      next;
-    }
 
-    if ( m%^\s+Source:\s+(.*)\s*$% )
-    {
-#     A 'Source' line is the first in a group for a single src->dst transfer
-      push @h, $h if $h;
-      undef $h;
-    }
-    if ( m%^\s+(\S+):\s+(.*)\s*$% )
-    {
-      $last_key = uc $1;
-      $h->{$last_key} = $2;
-    }
-    elsif ( m%\S% )
-    {
-      $h->{$last_key} .= ' ' . $_;
-    }
+  foreach ( @raw ) {
+     if ( $preamble ) {
+       if ( m%^\s*([A-Z,a-z]+)\s*$% ) { # non-verbose case
+         $state = $1;
+         $preamble = 0;
+       }
+       if ( m%^\s*Status:\s+([A-Z,a-z]+)\s*$% ) { # verbose case
+         $state = $1;
+       }
+       if ( m%^\s+Source:\s+(.*)\s*$% ) {
+         $last_key = uc "Source";
+         $h->{$last_key} = $1;
+         $preamble = 0;
+       }
+       push @{$result->{INFO}}, $_ if $preamble;
+     } else {
+       if ( m%^\s+Source:\s+(.*)\s*$% ) {
+#        A 'Source' line is the first in a group for a single src->dst transfer
+         push @hofh, $h if $h;
+         undef $h;
+       }
+       if ( m%^\s+(\S+):\s+(.*)\s*$% ) {
+         $last_key = uc $1;
+         $h->{$last_key} = $2;
+       }
+       elsif ( m%\S% ) {
+         $h->{$last_key} .= ' ' . $_;
+       }
+     }
   }
 
   if ( defined($state) )
@@ -308,12 +299,10 @@ sub ParseListJob
     $result->{JOB_STATE} = $state;
   }
 
-  push @h, $h if $h;
-  foreach $h ( @h )
-  {
+  push @hofh, $h if $h;
+  foreach $h ( @hofh ) {
 #  Be paranoid about the fields I read!
-    foreach ( qw / DESTINATION DURATION REASON RETRIES SOURCE STATE / )
-    {
+    foreach ( qw / DESTINATION DURATION REASON RETRIES SOURCE STATE / ) {
       next if defined($h->{$_});
       my $error_msg = "No \"$_\" key! : " .
 		join(', ',
@@ -333,11 +322,7 @@ sub ParseListJob
   }
 
   $result->{ETC} = 0;
-# foreach ( keys %{$result->{FILE_STATES}} )
-# {
-#   $result->{ETC} += ( $weights{$_} || 0 ) * $result->{FILE_STATES}{$_};
-# }
-
+  print 'Transfer::Backend::Interface::FTS3CLIAsync::ParseListJob ', Dumper($result) if $self->{DEBUG} >=2;
   return $result;
 }
 
