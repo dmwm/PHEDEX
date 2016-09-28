@@ -5,7 +5,8 @@ Changes for all Agents
  - An agent unable to identify itself via 'ps' will terminate via fatal
 error, to avoid going into an unrecoverable state. The Watchdog agent
 should then restart it - fix for #1038 (previous fix in 4.1.8 did not work)
-
+ - Suppress a warning during Watchdog agent startup - fix for #1021
+ 
 Changes for Site Agents
 
  - FileDownload agent: add support for FTS3 backend using fts3-client CLI
