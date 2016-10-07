@@ -63,9 +63,9 @@ sub idle
 	    insert into t_status_block_dest
 	    (time_update, destination, state, files, bytes, is_custodial)
 	    select :now, bd.destination, bd.state,
-	           count(f.id), nvl(sum(f.filesize),0), bd.is_custodial
+	           sum(b.files), sum(b.bytes), bd.is_custodial
 	    from t_dps_block_dest bd
-	      join t_dps_file f on f.inblock = bd.block
+	      join t_dps_block b on b.id = bd.block
 	    group by :now, bd.destination, bd.state, bd.is_custodial},
 	    ":now" => $now);
 	push @log, [$rv[1]+0, "status_block_dest"];
