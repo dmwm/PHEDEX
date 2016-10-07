@@ -17,8 +17,8 @@ PHEDEX_MSS=`echo ${PHEDEX_NODE}_MSS |sed 's|_Buffer||' |sed 's|_Export||'`;
 #unset X509_USER_KEY X509_USER_CERT;
 #unset X509_USER_PROXY;
 
-# Set this appropriately!
-TNS_ADMIN=${SCHEMA_ROOT};
+# Here you can override the value which comes with oracle-env package, PHEDEX-lifecycle depends upon
+# TNS_ADMIN= 
 
 # Debug on
 PHEDEX_DEBUG=0; export PHEDEX_DEBUG;
