@@ -2,11 +2,11 @@
 
 import os
 import string
-import StringIO
 import pycurl
 import simplejson
 import re
 import subprocess
+import io as StringIO
 
 from optparse import OptionParser
 

@@ -1,11 +1,16 @@
 
-import threading, time, cStringIO, re
+import threading, time, re
 from xml.sax.saxutils import XMLGenerator
 
 import cherrypy
 
 from graphtool.database import DatabaseInfoV2
 from graphtool.database.connection_manager import OracleDatabase
+try:
+    import cStringIO as StringIO
+except ImportError: # python3
+    import io as StringIO
+
 
 class TfcRule:
   
@@ -243,7 +248,7 @@ class TfcMapperPhedex( DatabaseInfoV2 ):
     def xml( self, node=None ):
         if node != None:
             return self.xml_node( node )
-        output = cStringIO.StringIO()
+        output = StringIO.StringIO()
         gen = XMLGenerator( output, 'utf-8' )
         gen.startDocument()
         output.write('<!DOCTYPE mappings>\n')
@@ -265,7 +270,7 @@ class TfcMapperPhedex( DatabaseInfoV2 ):
     def xml_node( self, node ):
         if node not in self.nodes:
             raise ValueError("Unknown node.")
-        output = cStringIO.StringIO()
+        output = StringIO.StringIO()
         gen = XMLGenerator( output, 'utf-8' )
         gen.startDocument()
         output.write('<!DOCTYPE storage-mapping>\n')

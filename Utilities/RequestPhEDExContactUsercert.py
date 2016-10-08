@@ -1,10 +1,10 @@
 #!/usr/bin/env python2.4
 
 import os
-import StringIO
 import pycurl
 import simplejson
 import re
+import io as StringIO
 
 from optparse import OptionParser
 
