@@ -8,10 +8,10 @@
 # 			and should be either "Dev", "Debug" or "Production".	    #
 #										    #
 # PHEDEX_LABEL:		Authentication label for DB access; this is usually your    #
-# 			site's name and can be found in the first line of the	    #
-#			authentication info you received			    #
+# 			site's name minus underscores and can be found in the	    #
+#			first line of the authentication info you received	    #
 #										    #
-# PHEDEX_SITE:		Your CMS site name as in $PHEDEX_BASE/siteconf		    #
+# PHEDEX_SITE:		Your CMS site name as in $PHEDEX_BASE/SITECONF		    #
 #										    #
 # PHEDEX_NODE:		Name of your Buffer node; For T2s and T3s this is           #
 #                       equivilent to $PHEDEX_SITE.  For T1s there can be multiple  #
@@ -21,17 +21,18 @@
 #										    #
 # PHEDEX_VERSION:	The PhEDEx version you are running			    #
 #                                                                                   #
-# PHEDEX_OS_VERSION:	OS version of machine PhEDEx runs on. Typically SL5 or SL6  #
+# PHEDEX_OS_VERSION:	OS version of machine PhEDEx runs on. Typically SL6	    #
 #										    #
 # X509_USER_PROXY:	Location of your Grid proxy; you want to make sure, that    #
 #			only the user running your PhEDEx agents can read it	    #
+#										    # 
+# PHEDEX_NOTIFICATION_PORT: UDP port used for Watchdog agent communication. Each    #
+#  			    instance should use a different port!	            #
+# 			    	     	      	       	     			    #
 #                                                                                   #
 # PHEDEX_GLITE_ENV:	GLite environment setup script; please fill in path to      #
 #			your GLite installation                                     #
 #                                                                                   #
-# GLITE_SD_PLUGIN:	GLite service discovery authority; usually bdii             #
-#                                                                                   #
-# TIER1_FTS_SERVICE:	T2s please fill in your T1s FTS service                     #
 #####################################################################################
 
 
@@ -41,18 +42,17 @@
 # Common part
 PHEDEX_BASE=/home/phedex;
 PHEDEX_INSTANCE=Dev;
-PHEDEX_LABEL=ATLANTIS;
+PHEDEX_LABEL=T2CXATLANTIS;
 PHEDEX_SITE=T2_CX_Atlantis;
 PHEDEX_NODE=$PHEDEX_SITE
-PHEDEX_VERSION=4_1_2
-PHEDEX_OS_VERSION=slc5_amd64_gcc461;
+PHEDEX_VERSION=4.2.0;
+PHEDEX_OS_VERSION=slc6_amd64_gcc493;
 PHEDEX_X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
+
+PHEDEX_NOTIFICATION_PORT=7420;
 
 # FTS specific part
 PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
-GLITE_SD_PLUGIN=bdii;
-TIER1_FTS_SERVICE=Atlantis-FTS;
-
 
 ####################################
 # Load the sub-configuration files #
@@ -78,10 +78,11 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 
 # Download and MSS agents default to 'off'; either start explicitly or
 # remove 'DEFAULT=off' from the ConfigPart file listed below.
+# For T1s, uncomment ConfigPart.MSS
 # Please make sure, that the settings in those files reflect your
 # site's storage and transfer topology.
 
 ### IMPORT ConfigPart.FTSDownload
-### IMPORT ConfigPart.MSS
+#### IMPORT ConfigPart.MSS
 ### IMPORT ConfigPart.Verify
 ### IMPORT ConfigPart.Watchdog
