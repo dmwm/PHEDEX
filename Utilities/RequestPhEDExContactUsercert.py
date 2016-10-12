@@ -1,9 +1,9 @@
-#!/usr/bin/env python2.4
+#!/usr/bin/env python2
 
 import os
-import StringIO
+import io
 import pycurl
-import simplejson
+import json
 import re
 
 from optparse import OptionParser
@@ -16,10 +16,10 @@ from email.MIMEText import MIMEText
 
 def fetchSiteDBData(curl,url):
     curl.setopt(pycurl.URL, url)
-    fr=StringIO.StringIO()
+    fr=io.BytesIO()
     curl.setopt(pycurl.WRITEFUNCTION,fr.write)
     curl.perform()
-    jr = simplejson.loads(fr.getvalue())
+    jr = json.loads(fr.getvalue())
     fr.close()
     return jr
 
@@ -47,6 +47,7 @@ c = pycurl.Curl()
 c.setopt(pycurl.CAPATH,os.getenv('X509_CERT_DIR'))
 c.setopt(pycurl.SSLKEY,os.getenv('X509_USER_PROXY'))
 c.setopt(pycurl.SSLCERT,os.getenv('X509_USER_PROXY'))
+c.setopt(pycurl.CAINFO, os.getenv('X509_USER_PROXY'))
 
 jr = fetchSiteDBData(c,'https://cmsweb.cern.ch/sitedb/data/prod/site-responsibilities')
 jn = fetchSiteDBData(c,'https://cmsweb.cern.ch/sitedb/data/prod/site-names')
@@ -102,18 +103,18 @@ for site in asso.keys():
                 print "WARNING: skipping mail already sent to "+options.outdir+'/'+site+':'+admin
                 continue
             
-            f=StringIO.StringIO()
+            f=io.StringIO()
 
-            f.write("Hello "+admin+"\n\n")
-            f.write("In order to renew your PhEDEx authentication role,\n")
-            f.write("we need the public key of your certificate, typically found\n")
-            f.write("in ~/.globus/usercert.pem.\n")
-            f.write("Please reply to this mail with your usercert.pem in attachment\n")
-            f.write("(NOT your userkey.pem!!!) and you will soon receive your new\n")
-            f.write("authentication information by encrypted mail\n\n")
-            f.write("Yours truly,\n")
-            f.write("  PhEDEx administrators\n")
-            f.write("  (cms-phedex-admins@cern.ch)\n")
+            f.write(u"Hello "+admin+u"\n\n")
+            f.write(u"In order to renew your PhEDEx authentication role,\n")
+            f.write(u"we need the public key of your certificate, typically found\n")
+            f.write(u"in ~/.globus/usercert.pem.\n")
+            f.write(u"Please reply to this mail with your usercert.pem in attachment\n")
+            f.write(u"(NOT your userkey.pem!!!) and you will soon receive your new\n")
+            f.write(u"authentication information by encrypted mail\n\n")
+            f.write(u"Yours truly,\n")
+            f.write(u"  PhEDEx administrators\n")
+            f.write(u"  (cms-phedex-admins@cern.ch)\n")
 
             msg = MIMEText(f.getvalue())
             f.close()
