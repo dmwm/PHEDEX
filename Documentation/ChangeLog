@@ -10,14 +10,18 @@ should then restart it - fix for #1038 (previous fix in 4.1.8 did not work)
 Changes for Site Agents
 
  - FileDownload agent: add support for FTS3 backend using fts3-client CLI
+ -- https://twiki.cern.ch/twiki/bin/view/CMS/PhedexAdminDocsUsingFTS3Backend
  - FileDownload agent: add support for Circuit awareness
+ -- http://www.evernote.com/l/AqlhTDGpmUdGe4q3OkXdY5xs0EslGYs1RLg/
  - BlockDownloadVerify agent: add gfal Namespace (using gfal2-utils),
 change eos Namespace to use "eos -b" command
+ - Modernized config templates in PHEDEX/Custom/Templates
 
 Changes for Central Agents
 
  - BlockAllocator agent: will not block subscriptions updates via website
 and datasvc - fix for #1032
+ - PerfMonitor agent: query performance optimization - fix for #1051
 
 Changes for Schema
  - Fixes in privilege granting script
