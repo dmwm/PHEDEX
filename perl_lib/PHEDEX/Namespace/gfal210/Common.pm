@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::gfal::Common;
+package PHEDEX::Namespace::gfal210::Common;
 # Factor out some common functionality, specifically, the 'execute' routine
 use File::Basename;
 sub new

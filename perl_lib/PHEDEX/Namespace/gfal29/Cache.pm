@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::gfal::Cache;
+package PHEDEX::Namespace::gfal29::Cache;
 # Implement caching of results in the namespace framework for gfal-access
 # It just inherits the base class
 use strict;

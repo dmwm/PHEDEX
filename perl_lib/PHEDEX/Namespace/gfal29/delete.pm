@@ -1,8 +1,8 @@
-package PHEDEX::Namespace::gfal::delete;
+package PHEDEX::Namespace::gfal29::delete;
 # Implements the 'delete' function for gfal access
 use strict;
 use warnings;
-use base 'PHEDEX::Namespace::gfal::Common';
+use base 'PHEDEX::Namespace::gfal29::Common';
 
 sub new
 {
