@@ -10,7 +10,7 @@ use Getopt::Long;
 
 our $default_protocol_version = '2';
 our $default_proxy_margin     = 60;
-our $default_gfal_ns_version = '';
+our $default_gfal_ns_version = '210';
 
 sub new {
 	my $proto = shift;

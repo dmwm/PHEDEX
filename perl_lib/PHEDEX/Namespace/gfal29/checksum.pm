@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::gfal::checksum;
+package PHEDEX::Namespace::gfal29::checksum;
 # Implements the 'checksum' function for gfal access
 use strict;
 use warnings;

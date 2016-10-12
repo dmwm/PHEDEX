@@ -3,7 +3,7 @@ package PHEDEX::Namespace::gfal210::stat;
 # Implements the 'stat' function for gfal access
 use strict;
 use warnings;
-use base 'PHEDEX::Namespace::gfal::Common';
+use base 'PHEDEX::Namespace::gfal210::Common';
 use Time::Local;
 
 # @fields defines the actual set of attributes to be returned
