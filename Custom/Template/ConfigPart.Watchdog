@@ -10,11 +10,12 @@
 ### AGENT LABEL=Watchdog PROGRAM=Utilities/AgentFactory.pl
           -db     ${PHEDEX_DBPARAM}
           -node   ${PHEDEX_NODE}
+          -agent_list exp-pfn
           -agent_list download-t1
           -agent_list download-t2
           -agent_list download-remove
           -agent_list blockverify
-          -limit blockverify,vsize,1024
+#         -limit blockverify,vsize,1024
 
 
 ### AGENT LABEL=WatchdogLite PROGRAM=Utilities/AgentFactoryLite.pl
