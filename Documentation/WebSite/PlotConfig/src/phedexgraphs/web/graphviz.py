@@ -1,8 +1,6 @@
 
-import sys
 import time
 from threading import Thread
-from sets import Set as set
 
 import pydot
 from matplotlib import cm
