@@ -1,10 +1,10 @@
-#!/usr/bin/env python2.4
+#!/usr/bin/env python2
 
 import os
 import string
-import StringIO
+import io
 import pycurl
-import simplejson
+import json
 import re
 import subprocess
 
@@ -13,10 +13,10 @@ from optparse import OptionParser
 
 def fetchSiteDBData(curl,url):
     curl.setopt(pycurl.URL, url)
-    fr=StringIO.StringIO()
+    fr=io.BytesIO()
     curl.setopt(pycurl.WRITEFUNCTION,fr.write)
     curl.perform()
-    jr = simplejson.loads(fr.getvalue())
+    jr = json.loads(fr.getvalue())
     fr.close()
     return jr
 
@@ -50,6 +50,7 @@ c = pycurl.Curl()
 c.setopt(pycurl.CAPATH,os.getenv('X509_CERT_DIR'))
 c.setopt(pycurl.SSLKEY,os.getenv('X509_USER_PROXY'))
 c.setopt(pycurl.SSLCERT,os.getenv('X509_USER_PROXY'))
+c.setopt(pycurl.CAINFO, os.getenv('X509_USER_PROXY'))
 
 jr = fetchSiteDBData(c,'https://cmsweb.cern.ch/sitedb/data/prod/site-responsibilities')
 jn = fetchSiteDBData(c,'https://cmsweb.cern.ch/sitedb/data/prod/site-names')
