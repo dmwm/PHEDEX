@@ -18,5 +18,5 @@ unset X509_USER_KEY X509_USER_CERT;
 export X509_USER_PROXY=${PHEDEX_X509_USER_PROXY};
 
 # Source PhEDEx environment
-source ${PHEDEX_BASE}/sw/${PHEDEX_OS_VERSION}/cms/PHEDEX/PHEDEX_$PHEDEX_VERSION/etc/profile.d/env.sh;
+source ${PHEDEX_BASE}/sw/${PHEDEX_OS_VERSION}/cms/PHEDEX/$PHEDEX_VERSION/etc/profile.d/env.sh;
 

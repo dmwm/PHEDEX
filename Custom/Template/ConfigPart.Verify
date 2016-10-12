@@ -2,5 +2,5 @@
 
 ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify
  -db              ${PHEDEX_DBPARAM}  
- -nodes           ${PHEDEX_NODE},${PHEDEX_MSS}
- -namespace       'posix'
+ -nodes           ${PHEDEX_NODE}
+ -namespace       'gfal'

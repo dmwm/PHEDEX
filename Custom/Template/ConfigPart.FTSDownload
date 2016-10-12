@@ -17,35 +17,35 @@ FTS_SERVER=https://fts3.cern.ch:8446;
 ### AGENT LABEL=download-t1 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
- -ignore          T1_CERN_MSS
+#-ignore          T0_CH_CERN_MSS
  -accept          'T1%'
- -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,-d,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'rfio'
+ -delete          ${PHEDEX_CONFIG}/FileDownloadGFALDelete
+ -validate        ${PHEDEX_CONFIG}/FileDownloadGFALVerify
  -verbose
  -backend         FTS3
  -service         ${FTS_SERVER}
- -protocols       'srmv2','srm'
- -batch-files           2
- -max-active-files      100
- -link-pending-files    4
+ -protocols       'srmv2'
+# -batch-files           2
+# -max-active-files      100
+# -link-pending-files    4
 
 ### AGENT LABEL=download-t2 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
- -ignore          'T2_CH_CAF'
+#-ignore          'T2_CH_CERN'
  -accept          'T2%'
- -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,-d,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'rfio'
+ -delete          ${PHEDEX_CONFIG}/FileDownloadGFALDelete
+ -validate        ${PHEDEX_CONFIG}/FileDownloadGFALVerify
  -verbose
  -backend         FTS3
  -service         ${FTS_SERVER}
- -protocols       'srmv2','srm'
- -batch-files           5
- -max-active-files      100
- -link-pending-files    5
+ -protocols       'srmv2'
+# -batch-files           5
+# -max-active-files      100
+# -link-pending-files    5
 
 ### AGENT LABEL=download-remove PROGRAM=Toolkit/Transfer/FileRemove ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
- -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
+ -delete          ${PHEDEX_CONFIG}/FileDownloadGFALDelete
  -protocol        'srmv2'
