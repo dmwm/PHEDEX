@@ -3,6 +3,6 @@ package PHEDEX::Namespace::gfal210::Cache;
 # It just inherits the base class
 use strict;
 use warnings;
-use base 'PHEDEX::Namespace::Cache';
+use base 'PHEDEX::Namespace::gfal::Cache';
 
 1;
