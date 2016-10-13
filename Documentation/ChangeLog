@@ -13,8 +13,9 @@ Changes for Site Agents
  -- https://twiki.cern.ch/twiki/bin/view/CMS/PhedexAdminDocsUsingFTS3Backend
  - FileDownload agent: add support for Circuit awareness
  -- http://www.evernote.com/l/AqlhTDGpmUdGe4q3OkXdY5xs0EslGYs1RLg/
- - BlockDownloadVerify agent: add gfal Namespace (using gfal2-utils),
-change eos Namespace to use "eos -b" command
+ - BlockDownloadVerify agent: add gfal Namespace (using gfal2-utils)
+ -- requires gfal2.10 or newer by default; gfal2.9 or older versions are supported with option "--gfalv 29"
+ - BlockDownloadVerify agent: change eos Namespace to use "eos -b" command
  - Modernized config templates in PHEDEX/Custom/Templates
 
 Changes for Central Agents
