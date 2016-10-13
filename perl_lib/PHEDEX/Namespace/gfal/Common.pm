@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::gfal210::Common;
+package PHEDEX::Namespace::gfal::Common;
 # Factor out some common functionality, specifically, the 'execute' routine
 use File::Basename;
 sub new
@@ -15,9 +15,15 @@ sub execute
 # an entire directory instead of having to go back to the SE for every file 
   my ($self,$ns,$file,$call) = @_;
 
-  my ($dir,$result);
   $ns->proxy_check;
-  return $ns->Command($call,$file);
+  
+  return $ns->Command($call,$file) if $ns->{NOCACHE};
+ 
+  my $dir = dirname $file;
+
+  $ns->Command($call,$dir);
+  # Explicitly pull the right value from the cache
+  return $ns->{CACHE}->fetch($call,$file);
 
 }
 

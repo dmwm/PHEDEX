@@ -1,9 +1,10 @@
 package PHEDEX::Namespace::gfal210::stat;
 
 # Implements the 'stat' function for gfal access
+# Specific for gfal version 2.10 or newer
 use strict;
 use warnings;
-use base 'PHEDEX::Namespace::gfal210::Common';
+use base 'PHEDEX::Namespace::gfal::Common';
 use Time::Local;
 
 # @fields defines the actual set of attributes to be returned
@@ -33,16 +34,22 @@ sub parse {
 
 	# Parse the stat output. Each file is cached as it is seen. Returns the last
 	# file cached, which is only useful in NOCACHE mode!
-	my ( $self, $ns, $r, $dir ) = @_;
-	# gfal-sum returns only one line
-	my $c = $r->{STDOUT}[0];
+	my ( $self, $ns, $res, $dir ) = @_;
+
+	my $result = {};
+
+	foreach (@{$res->{STDOUT}}) {
+
 	# remove \n
-	chomp($c);
+	chomp($_);
+
+	my $r;
 
         # return value is of the form
 	# -rw-r--r-- 1   <uid>    <gid>  <size>  <month> <day> <time or year> <PFN> 
 
-	my @values = split( ' ', $c );
+	my @values = split( ' ', $_ );
+
 	$r->{access} = $values[0];
 	$r->{access} =~ s/-//;
 	$r->{uid} = $values[2];
@@ -51,7 +58,7 @@ sub parse {
 	my $day        = $values[6];
 	my $timeOrYear = $values[7];
 	$r->{size} = $values[4];
-	my $url = $values[8];
+	my $file = $values[8];
 	my ( @t, %month2num, $M, $d, $y, $h, $m, $s );
 	%month2num = qw( Jan 0 Feb 1 Mar 2 Apr 3 May 4 Jun 5 
           Jul 6 Aug 7 Sep 8 Oct 9 Nov 10 Dec 11 );
@@ -82,8 +89,13 @@ sub parse {
 	$r->{lifetime_left} = '-1';
 	$r->{space_token}   = '';
 	$r->{type}          = 'FILE';
+	
+	$ns->{CACHE}->store('stat',"$dir/$file",$r);
 
-	return $r;
+	$result = $r;
+
+	}
+	return $result;
 }
 
 sub Help {
