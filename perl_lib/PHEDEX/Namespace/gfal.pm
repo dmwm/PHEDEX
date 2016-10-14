@@ -37,6 +37,14 @@ sub new {
 	$self->{PROXY_CHECK} = 0;
 	map { $self->{$_} = $h{$_} } keys %h;
 
+	if ( exists($self->{AGENT})) {
+	    if ( exists($self->{AGENT}->{NOCACHE}) &&
+		 $self->{AGENT}->{NOCACHE} != $self->{NOCACHE}) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
+	    foreach ( qw / GFAL_NS_VER PROXY_MARGIN / ) {
+		if ( exists($self->{AGENT}->{$_}) ) { $self->{$_} = $self->{AGENT}->{$_}; }
+	    }
+	}
+
 	# do not use 'direct' protocol to look up in tfc for gfal requests!
 	my $protocol;
 	if    ( $h{PROTOCOL} )            { $protocol = $h{PROTOCOL}; }
