@@ -198,6 +198,8 @@ sub validateRequest
 	@typereq = qw( PRIORITY USER_GROUP IS_MOVE IS_STATIC IS_TRANSIENT IS_DISTRIBUTED IS_CUSTODIAL); 
     } elsif ( $h{TYPE} eq 'delete' ) {
 	@typereq = qw( RM_SUBSCRIPTIONS );
+    } elsif ( $h{TYPE} eq 'invalidate' ) {
+	@typereq = qw( INV_REPLICAS );
     } else {
 	die "type '$h{TYPE}' is not valid\n";
     }
