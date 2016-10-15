@@ -329,6 +329,7 @@ sub addRequestData
     my $type;
     $type = 'DATASET' if $h{DATASET};
     $type = 'BLOCK'   if $h{BLOCK};
+    $type = 'FILE'    if $h{FILE};
     return undef unless $type && $request;
 
     my $type_lc = lc $type;
