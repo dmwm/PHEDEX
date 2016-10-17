@@ -78,7 +78,8 @@ sub Help {
  --version      specifies the protocol version. Default='$default_protocol_version'
  --proxy_margin require a proxy to be valid for at least this long or die.
 	        Default=$default_proxy_margin
- --gfalv        version of gfal namespace. Default='$default_gfal_ns_version' 
+ --gfalv        version of gfal namespace. Accepts '29' for gfal2.9- and '210' for gfal2.10+.
+                Default='$default_gfal_ns_version' 
 
  Commands known to this module:
 EOF
