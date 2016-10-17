@@ -436,7 +436,7 @@ TODO:  document format for $data and $nodes hash.
 
 sub createRequest
 {
-    my ($self, $ds_ids, $b_ids, $node_pairs, %h) = @_;
+    my ($self, $ds_ids, $b_ids, $f_ids, $node_pairs, %h) = @_;
 
     my $now = $h{NOW} || &mytimeofday();
     my $type = $h{TYPE};
