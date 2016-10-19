@@ -143,6 +143,42 @@ sub RemoveClient
   $poe_kernel->post( $self->{Session} => 'Quit' ) unless scalar(keys %{$self->{clients}});
 }
 
+# Remove the object pass as argument from the objects watched 
+# and kill the session if there are no more objects.
+sub RemoveObject 
+{
+  my ( $self, $p ) = @_;
+  my ( $object_stored );
+  my ( $index ) = 0;
+  my ( $found ) = -1; #-1 not found, other index found
+
+  $self->Verbose("Removing object $p for ",$self->{File},"\n");
+
+  # Look for the object and store in found the index where it was found
+  foreach $object_stored (@{$self->{objects}}){
+
+      if( $object_stored == $p ){
+	  $found = $index;
+      }
+      $index++;
+  }
+
+  if ( $found != -1 )
+  {
+      $self->Verbose("Object found: Index ", $found ,".\n");
+
+      # Remove it from ours objects
+      delete $self->{objects}[$found];
+  }
+  else
+  {
+      Print "Object not among my objects.\n";
+  }
+
+  # If there are no more objects to watch kill the session
+  $poe_kernel->post( $self->{Session} => 'Quit' ) unless scalar(@{$self->{objects}});
+}
+
 sub AddFile
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];

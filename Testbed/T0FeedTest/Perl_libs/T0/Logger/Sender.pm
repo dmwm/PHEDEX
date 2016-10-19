@@ -13,7 +13,7 @@ use Carp;
 $VERSION = 1.00;
 @ISA = qw/ Exporter /;
 
-$Logger::Name = 'Logger::Sender';
+$Logger::Sender::Name = 'Logger::Sender';
 
 my ($i,@queue);
 our $hdr = __PACKAGE__ . ':: ';
@@ -27,7 +27,7 @@ sub _init
 {
   my $self = shift;
 
-  $self->{Name} = $Logger::Name . '-' . hostname() . '-' . $$;
+  $self->{Name} = $Logger::Sender::Name . '-' . hostname() . '-' . $$;
   my %h = @_;
   map { $self->{$_} = $h{$_}; } keys %h;
   $self->ReadConfig();
@@ -52,13 +52,13 @@ sub _init
     Disconnected   => \&_connection_error_handler,
     Connected      => \&_connected,
     ServerInput    => \&_server_input,
-#    Started	   => \&started,
     ObjectStates   => [
 	$self => [
 			    server_input => 'server_input',
 			       connected => 'connected',
 		connection_error_handler => 'connection_error_handler',
 				    send => 'send',
+		           forceShutdown => 'forceShutdown',
 		 ],
 	],
     Args => [ $self ],
@@ -142,15 +142,21 @@ sub Send
   { push @{$self->{Queue}}, \@_; }
 }
 
-sub error        { Print $hdr," error\n"; }
 sub server_error { Print $hdr," Server error\n"; }
 
 sub _connection_error_handler { reroute_event( (caller(0))[3], @_ ); }
 sub connection_error_handler
 {
-  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my ( $self, $kernel, $heap ) = @_[ OBJECT, KERNEL, HEAP ];
 
   return if $self->{OnError}(@_);
+
+  # Stop reconnecting  if the sender is shutting down
+  if( defined($heap->{forceShutdown}) and $heap->{forceShutdown} == 1){
+      $self->Debug("No reconnections while shutting down.\n");
+      return;
+  }
+  
 
   my $retry = $self->{RetryInterval};
   defined($retry) && $retry>0 || return;
@@ -192,6 +198,9 @@ sub connected
   $self->{Session} = $session->ID;
   $self->{Retries} = 0;
 
+  #It will be set to one when we will want to shutdown the component, calling forceShutdown function
+  $heap->{forceShutdown} = 0;
+
   $self->Debug("handle_connect: from server: $input\n");
   my %text = (  'text'   => 'I live...',
                 'client' => $self->{Name},
@@ -220,4 +229,13 @@ sub send
   }
 }
 
+
+#Shutdown the Tcp Client session and avoid reconnections
+sub forceShutdown
+{
+  my ( $self, $kernel, $heap ) = @_[ OBJECT, KERNEL, HEAP ];
+
+  $heap->{forceShutdown} = 1;
+  $kernel->yield('shutdown');
+}
 1;
