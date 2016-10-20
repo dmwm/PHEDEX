@@ -9,7 +9,9 @@ use Carp;
 $VERSION = 1.00;
 @ISA = qw/ Exporter /;
 @EXPORT = qw/ Print dump_ref profile_flat profile_table bin_table uuid
-	      reroute_event check_host SelectTarget /;
+	      reroute_event check_host SelectTarget MapTarget GetChannel
+	      UuidOfFile GetEventsFromJobReport GetRootFileInfo
+	      SetProductMap IsRequiredProduct IsRequiredSource /;
 
 my ($debug,$quiet,$verbose,$i,@queue);
 
@@ -110,6 +112,14 @@ sub profile_flat
   return $size;
 }
 
+sub UuidOfFile
+{
+  $_ = shift;
+  s%^.*/%%;
+  s%\..*$%%;
+  return $_;
+}
+
 sub uuid
 {
   my $uuid;
@@ -140,16 +150,61 @@ sub SelectTarget
   croak "Don't know what target to take for TargetMode = \"$mode\"...\n";
 }
 
+sub GetChannel
+{
+  my ($file,$channels) = @_;
+
+# This relies on a naming convention, /path/(CSA06-(\d+)-os-)$channel/$file,
+# The '/$file' is optional.
+  $_ = $file;
+# s%^.*/([^/]+/[^/]+$)%$1%;
+# s%^CSA06-(\d+)-os-%%;
+# s%/[^/]*$%%;
+  m%/CSA06-\d+-os-([^-/]+)%;
+  $_ = $1;
+
+  return $_ if ! defined($channels);
+  return $_ if exists $channels->{$_};
+  Print "Unknown channel \"$_\" for file \"$file\"\n";
+  return undef;
+}
+
+sub MapTarget
+{
+  my ($h,$channels) = @_;
+  my $target = $h->{Target};
+  $_ = GetChannel($h->{File},$channels);
+  if ( !defined($_) )
+  {
+    Print "No Channel for \"",$h->{File},"\"\n";
+    return undef;
+  }
+  $target =~ s%CHANNEL%$_%;
+  return $target;
+}
+
 sub ReadConfig
 {
   my ($this, $hash, $file) = @_;
 
   $file = $this->{Config} unless $file;
   defined($file) && -f $file or return;
-  do "$file" or Croak "$file: problem...? $!\n";
+  eval
+  {
+    do "$file";
+  };
+  if ( $@ )
+  {
+    carp "ReadConfig: $file: $@\n";
+    return;
+  }
 
   no strict 'refs';
-  if ( ! $hash ) { ( $hash = $this->{Name} ) =~ s%^T0::%%; }
+  if ( ! $hash )
+  {
+    ( $hash = $this->{Name} ) =~ s%^T0::%%;
+    $hash =~ s%-.*$%%;
+  }
   map { $this->{$_} = $hash->{$_} } keys %$hash;
 
   foreach $hash ( keys %{$this->{Partners}} )
@@ -159,6 +214,12 @@ sub ReadConfig
   }
 
   $this->{ConfigRefresh} = 10 unless $this->{ConfigRefresh};
+  if ( ! defined($this->{Node}) )
+  {
+    my $node = $this->{Name};
+    $node =~ s%::.*$%%;
+    $this->{Node} = $node;
+  }
 }
 
 sub timestamp
@@ -176,6 +237,51 @@ sub timestamp
 
   sprintf("%04d%02d%02d%02d%02d%02d",
                   $year,$month,$day,$hour,$minute,$seconds);
+}
+
+sub strhash
+{
+  my $ref = shift;
+  return join(', ', map { "$_ => $ref->{$_}" } sort keys %$ref);
+}
+
+sub SetProductMap
+{
+  my ($t,$k);
+  undef %T0::System::Product::Map;
+
+  foreach $t ( keys %{$T0::System{ProductMap}} )
+  {
+    foreach $k ( keys %{$T0::System{ProductMap}{$t}} )
+    {
+      foreach ( @{$T0::System{ProductMap}{$t}{$k}} )
+      {
+        $T0::System::Product::Map{$t}{$k}{$_}++;
+      }
+    }
+  }
+}
+
+sub IsRequiredProduct
+{
+# For a given datatier and input channel, all products are allowed unless
+# a list restricts it.
+  my ($type,$input,$output) = @_;
+  return 1 unless defined($type) && defined($input) && defined($output);
+  return 1 unless defined $T0::System::Product::Map{$type};
+  return 1 unless defined $T0::System::Product::Map{$type}{$input};
+  return 1 if     defined $T0::System::Product::Map{$type}{$input}{$output};
+  return 0;
+}
+
+sub IsRequiredSource
+{
+# For a given datatier and input channel, is anything of interest?
+  my ($type,$input) = @_;
+  return 1 unless defined($type) && defined($input);
+  return 1 unless defined $T0::System::Product::Map{$type};
+  return 1 if     defined $T0::System::Product::Map{$type}{$input};
+  return 0;
 }
 
 1;

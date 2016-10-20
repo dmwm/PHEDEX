@@ -15,7 +15,7 @@ $Data::Dumper::Terse++;
 use Carp;
 $VERSION = 1.00;
 @ISA = qw/ Exporter /;
-$Logger::Name = 'Logger::Receiver';
+$Logger::Receiver::Name = 'Logger::Receiver';
 
 our (@queue,%q);
 our $hdr = __PACKAGE__ . ':: ';
@@ -29,7 +29,7 @@ sub _init
 {
   my $self = shift;
 
-  $self->{Name} = $Logger::Name;
+  $self->{Name} = $Logger::Receiver::Name;
   my %h = @_;
   map { $self->{$_} = $h{$_}; } keys %h;
   $self->ReadConfig();
@@ -59,7 +59,7 @@ sub _init
 		      set_rotate_alarm => 'set_rotate_alarm',
 		 ],
 	],
-    Args => [ $self ],
+    ListenerArgs => [ $self ],
   );
 
   if ( defined($self->{Logfile}) )
@@ -121,6 +121,13 @@ sub started
   $kernel->state( 'rotate_logfile',   $self );
   $kernel->state( 'set_rotate_alarm', $self );
   $kernel->yield( 'set_rotate_alarm' );
+
+$DB::single=1;
+  foreach my $xx ( @{$self->{Subscriptions}} )
+  {
+    $self->Quiet("Subscribing: ", T0::Util::strhash($xx),"\n");
+    $self->Subscribe( $xx->{Client}, $xx );
+  }
 }
 
 sub FileChanged
@@ -141,7 +148,10 @@ sub ReadConfig
   if ( defined($self->{Watcher}) )
   {
     $self->{Watcher}->Interval($self->{ConfigRefresh});
-    $self->{Watcher}->Options( %FileWatcher::Params);
+    if ( keys(%FileWatcher::Params) > 0 )
+    {
+	$self->{Watcher}->Options(\%FileWatcher::Params);
+    }
   }
 }
 
@@ -258,11 +268,10 @@ sub client_input
 	 @_[ OBJECT, KERNEL, HEAP, SESSION, ARG0 ];
   my ( $date, $text, $client );
 
-
   if ( ref($input) =~ m%^HASH% )
   {
-#   Special case for adding new clients...
-    if ( $input->{text} =~ m%^I live...$% )
+    # Special case for adding new clients...
+    if ( exists $input->{text} and $input->{text} =~ m%^I live...$% )
     {
       Print "new client: ",$input->{client},"\n";
       $heap->{client_name} = $input->{client};
@@ -282,13 +291,6 @@ sub client_input
         $self->{ApMon}->Send($input);
       }
     }
-#      my $cluster = $input->{Cluster};
-#      my $farm    = $input->{Farm};
-#      foreach ( qw / MonaLisa Cluster Farm / ) { delete $input->{$_}; }
-#      $apm->sendParameters( $cluster, $farm, %$input );
-#      $input->{Cluster} = $cluster; $input->{Farm} = $farm;
-#      $input->{MonaLisa}++;
-#    }
 
 #   Look for subscribtions matching this hash...
     my ($k,$i,$v);
@@ -302,8 +304,12 @@ sub client_input
         $self->Debug("$i : ",join(' ',%{$g->{$i}}),"\n");
         if ( $input->{$k} =~ m%^$g->{$i}->{Value}$% )
         {
-          $self->Debug(" Value matches!\n");
-          $self->{Filter}{$k}{$i}{Logger}->Send($input);
+          $self->Debug(" Value matches\n");
+          if (defined $input && defined ($self->{Filter}{$k}{$i}{Logger})) {
+	    $self->{Filter}{$k}{$i}{Logger}->Send($input);
+	  } else {
+	    $self->Debug("Input is not defined for $i\n");
+	  };
         }
       }
     }
@@ -323,7 +329,7 @@ sub set_rotate_alarm
 {
   my $kernel = $_[ KERNEL ];
   my @n = localtime;
-  my $wakeme = time + 86400 - $n[0] - 60*$n[1] - 3600*$n[2];
+  my $wakeme = time + 86400 + 60 - $n[0] - 60*$n[1] - 3600*$n[2];
   print "Set alarm for ", scalar localtime $wakeme, "\n";
   $kernel->alarm_set( rotate_logfile => $wakeme );
 }
@@ -332,14 +338,16 @@ sub rotate_logfile
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   return unless defined($self->{Logfile});
-  my $now = T0::Util::timestamp;
+  $kernel->yield('set_rotate_alarm');
+
+  my $newlogfile = $self->{Logfile} . '.' . T0::Util::timestamp;
+  return if -f $newlogfile;
+
   close STDOUT;
-  rename $self->{Logfile}, $self->{Logfile} . '.' . $now || 
+  rename $self->{Logfile}, $newlogfile ||
     Croak "Cannot rename $self->{Logfile}: $!\n";
   open STDOUT, ">>$self->{Logfile}" or Croak "open $self->{Logfile}: $!\n";
-# open(STDERR,">&STDOUT") or Croak "Cannot dup STDOUT: $!\n";
   select(STDOUT); $|=1;
-  $kernel->yield('set_rotate_alarm');
 }
 
 sub OnInputDefault
