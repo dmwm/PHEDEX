@@ -84,6 +84,7 @@ our %exit_states =
           STAGING       => 0,
           STARTED       => 0,
           NOT_USED      => 2,
+	  CANCELED      => 2,
 	);
 
 sub new
