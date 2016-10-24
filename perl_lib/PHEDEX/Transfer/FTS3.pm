@@ -255,7 +255,7 @@ sub isBusy
     # pending jobs in the FTS queue
     if (defined $from && defined $to) {
 	# FTS states to consider as "pending"
-	my @pending_states = ('Ready', 'Pending', 'Submitted', 'undefined');
+	my @pending_states = ('READY', 'SUBMITTED', 'undefined');
     	# Check per-link busy status based on a maximum number of
 	# "pending" files per link.  Treat undefined as pending until
 	# their state is resolved.
