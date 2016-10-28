@@ -28,8 +28,11 @@
 #										    # 
 # PHEDEX_NOTIFICATION_PORT: UDP port used for Watchdog agent communication. Each    #
 #  			    instance should use a different port!	            #
+#										    #
+# PHEDEX_WATCHDOG_NOTIFICATION_PORT: UDP port used by WatchdogLite agent to	    #
+# 				     communicate with Watchdog. Each instance	    #
+# 				     should use a different port!                   #
 # 			    	     	      	       	     			    #
-#                                                                                   #
 # PHEDEX_GLITE_ENV:	GLite environment setup script; please fill in path to      #
 #			your GLite installation                                     #
 #                                                                                   #
@@ -49,7 +52,10 @@ PHEDEX_VERSION=4.2.0;
 PHEDEX_OS_VERSION=slc6_amd64_gcc493;
 PHEDEX_X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
+# Watchdog part. Each instance should use a different port!
 PHEDEX_NOTIFICATION_PORT=7420;
+# WatchdogLite part. Each instance should use a different port!
+PHEDEX_WATCHDOG_NOTIFICATION_PORT=8420;
 
 # FTS specific part
 PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
