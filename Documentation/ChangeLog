@@ -1,3 +1,12 @@
+Changes for 4.2.1
+
+Changes for Site Agents
+
+ - FileDownload agent: FTS3 backend now properly applies -default-link-pending
+ limit. Fix for #1063
+ - FileDownload agent: FTS3 backend now recognizes files in the CANCELED state
+ in FTS3. Fix for #1061
+
 Changes for 4.2.0
 
 Changes for all Agents
