@@ -488,7 +488,7 @@ sub resume_backend_job
   $self->Logmsg("Resume JOBID=$job->{ID}, FTSjob=",$ftsjob->ID," by adding to monitoring");
 
   #register this job with queue monitor.
-  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
+  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob, $ftsjob->Priority);
   
   # the job has officially started
   $job->{STARTED} = &mytimeofday();
@@ -539,7 +539,7 @@ sub fts_job_submitted
   &output($jobsave, Dumper($ftsjob)) or $self->Fatal("$jobsave: $!");
 
   # Register this job with queue monitor.
-  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
+  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob, $ftsjob->Priority);
   
   # Set priority
   $self->{JOBMANAGER}->addJob(
