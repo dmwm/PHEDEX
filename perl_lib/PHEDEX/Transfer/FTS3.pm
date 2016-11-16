@@ -458,8 +458,6 @@ sub start_transfer_job
                                TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
                            );
-
-    # FIXME: need to parse response!!!! see fts_fob_submitted for FTS2 example
 }
 
 sub setup_callbacks
