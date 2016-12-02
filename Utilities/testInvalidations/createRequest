@@ -43,10 +43,10 @@ bless $conn;
 
 my $now = &mytimeofday();
 
-my %h = { 
+my %h = (
    NOW  => $now,
    TYPE => 'invalidate',
-};
+);
 
 # Provide empty data and nodes arrayref for now: 
 my $data = '';
