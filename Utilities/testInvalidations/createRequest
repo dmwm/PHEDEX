@@ -5,17 +5,23 @@
 ##H
 use strict;
 use warnings;
+
 use FindBin;
 use lib "$FindBin::Bin/../../perl_lib";
-use Getopt::Long;
-use PHEDEX::Core::DB;
-use PHEDEX::Core::Help;
-use PHEDEX::RequestAllocator::Core;
-use PHEDEX::Core::Timing;  # createRequest requires it
 use Data::Dumper;
 
-my $now = &mytimeofday();
-print $now . "\n";
+use Getopt::Long;
+
+use PHEDEX::Core::Help;
+
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Identity;
+use PHEDEX::RequestAllocator::Core;
+use PHEDEX::RequestAllocator::SQL;
+use PHEDEX::Core::SQL;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::XML;
+
 #die "EXITHERE\n";
 my ($conn, $dbh, $db);
 
@@ -26,17 +32,40 @@ my ($conn, $dbh, $db);
 if (@ARGV || !$db)
 {
     die "DB parameter is missing. Use -h for help.\n";
-} 
+}
 
-my $self = { DBCONFIG => $db };
-bless $self;
+# Connection is actually a parent class for the SQL objects:
 
-#$conn =  { DBCONFIG => $db };
-#$dbh = &connectToDatabase ($conn);
+$conn =  { DBCONFIG => $db };
+bless $conn;
 
-#my $core = { 
-#   NOW  => $now,
-#   TYPE => 'invalidate',
-#};
+# Define all required parameters for the request: 
 
-my $rid = &PHEDEX::RequestAllocator::Core::createRequest($self);
+my $now = &mytimeofday();
+
+my %h = { 
+   NOW  => $now,
+   TYPE => 'invalidate',
+};
+
+# Provide empty data and nodes arrayref for now: 
+my $data = '';
+my $nodes = [];  
+
+
+# Validate the parameters 
+# the function signature is: 
+# sub validateRequest
+# {
+#     my ($self, $data, $nodes, %h) = @_;
+#  ... 
+# }
+# TODO: extend the validation function as needed according to the policies 
+#
+my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest($conn, $data, $nodes, %h);
+
+
+#my $rid = &PHEDEX::RequestAllocator::Core::createRequest($conn);
+#my $rid = &PHEDEX::RequestAllocator::Core::createRequest();
+
+1;
