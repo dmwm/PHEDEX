@@ -198,6 +198,9 @@ sub validateRequest
 	@typereq = qw( PRIORITY USER_GROUP IS_MOVE IS_STATIC IS_TRANSIENT IS_DISTRIBUTED IS_CUSTODIAL); 
     } elsif ( $h{TYPE} eq 'delete' ) {
 	@typereq = qw( RM_SUBSCRIPTIONS );
+    } elsif ( $h{TYPE} eq 'invalidate' ) {
+	# If needed, pass additional parameters here:
+	@typereq = ();
     } else {
 	die "type '$h{TYPE}' is not valid\n";
     }
@@ -216,6 +219,12 @@ sub validateRequest
     if ($type eq 'delete' && $h{TIME_START}) {
 	die "cannot create request: Time-based deletion requests are not allowed\n";
     }
+
+    # By analogy with the previous two checks, enable if needed
+    # (do we ever want a delayed invalidation/re-transfer?): 
+    #if ($type eq 'invalidate' && $h{TIME_START}) {
+	#die "cannot create request: Time-based invalidation requests are not allowed\n";
+    #}
 
     # Part 0: validate groups
     if ($type eq 'xfer') {
