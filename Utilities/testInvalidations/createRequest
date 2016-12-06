@@ -46,10 +46,17 @@ my $now = &mytimeofday();
 my %h = (
    NOW  => $now,
    TYPE => 'invalidate',
+   CLIENT_ID => 9,
+   INSTANCE => 'natalia',
+   #LEVEL => 'BLOCK',
+   #COMMENTS => 'this is a test request by Nicolo'
 );
 
+#my %h = (CLIENT_ID => 9, TYPE => 'invalidation', INSTANCE => 'nicolo', LEVEL => 'BLOCK', COMMENTS => 'this is a test request by Nicolo', NOW => $now);
+
 # Provide empty data and nodes arrayref for now: 
-my $data = '';
+my $data;
+$data->{FORMAT} = 'flat';
 my $nodes = [];  
 
 
