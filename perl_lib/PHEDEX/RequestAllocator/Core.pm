@@ -238,7 +238,9 @@ sub validateRequest
 
     my ($ds_ids, $b_ids);
 
-    if ($dataformat eq 'tree') { # heirachical representation (user XML)
+    if ($dataformat eq 'lfns') { # user supplied list of LFNs  
+	print "NRDEVEL  TODO: implement processing of the LFNs list\n";
+    } elsif ($dataformat eq 'tree') { # heirachical representation (user XML)
 	# resolve the DBS
 	my $dbs = $data->{NAME};
 	my $db_dbs = &getDbsFromName($self, $dbs);
@@ -293,6 +295,7 @@ sub validateRequest
     } elsif ($dataformat eq 'flat') { # flat data representation (user text)
 	# resolve the dbs
 	my $dbs = $data->{DBS};
+
 	my $db_dbs = &getDbsFromName($self, $dbs);
 	if (! $db_dbs->{ID} ) {
 	    die "dbs '$dbs' does not exist\n";
@@ -535,3 +538,4 @@ L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
 =cut
 
 1;
+
