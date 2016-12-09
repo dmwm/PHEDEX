@@ -55,7 +55,8 @@ my %h = (
 
 # Provide empty data and nodes arrayref for now: 
 my $data;
-$data->{FORMAT} = 'flat';
+#$data->{FORMAT} = 'flat';
+$data->{FORMAT} = 'lfns';
 $data->{DBS} = 'test';
 $data->{DLS} = 'unknown';
 my $nodes = [];  
@@ -65,9 +66,9 @@ exit;
 
 sub test_createRequest{
     my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest($self,@_);
-    #my $rid = &PHEDEX::RequestAllocator::Core::createRequest($self,@valid_args);
-    #print "Created request ",$rid,"\n";
-    #&PHEDEX::Core::SQL::execute_commit($self);
+    my $rid = &PHEDEX::RequestAllocator::Core::createRequest($self,@valid_args);
+    print "Created request ",$rid,"\n";
+    &PHEDEX::Core::SQL::execute_commit($self);
 }
 
 1;
