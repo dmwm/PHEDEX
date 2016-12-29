@@ -201,6 +201,7 @@ sub validateRequest
     } elsif ( $h{TYPE} eq 'invalidate' ) {
 	# If needed, pass additional parameters here:
 	@typereq = ();
+	#@typereq = qw( INV_REPLICAS );
     } else {
 	die "type '$h{TYPE}' is not valid\n";
     }
@@ -446,6 +447,7 @@ TODO:  document format for $data and $nodes hash.
 
 sub createRequest
 {
+    #my ($self, $ds_ids, $b_ids, $f_ids, $node_pairs, %h) = @_;
     my ($self, $ds_ids, $b_ids, $node_pairs, %h) = @_;
 
     my $now = $h{NOW} || &mytimeofday();
