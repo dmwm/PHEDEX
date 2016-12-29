@@ -143,6 +143,10 @@ sub getBlockDeactivationCandidates
                                where ba.block = b.id
                                  and (ba.time_until is null
                                       or ba.time_until > :now))
+              and not exists (select 1 from t_dps_file_invalidate fi
+                               where fi.block = b.id
+                                 and (fi.time_complete is null
+                                      or fi.time_complete > :limit))                               
            };
   if ( $block )
   {

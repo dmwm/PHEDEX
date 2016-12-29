@@ -62,6 +62,9 @@ sub getBlockReactivationCandidates
                             and ba.time_request <= :now
                             and (ba.time_until is null
                                  or ba.time_until >= :now))
+               or exists (select fi.block
+                          from t_dps_file_invalidate fi
+                          where fi.block = b.id and fi.time_complete is null)
             group by b.id, b.name
            };
 

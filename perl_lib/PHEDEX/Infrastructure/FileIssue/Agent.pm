@@ -73,7 +73,8 @@ sub confirm
     # 
     # Also, do not create tasks where a deletion is scheduled for
     # either the source or the destination node (or locally connected MSS nodes),
-    # in order to allow the deletion to proceed.
+    # or an invalidation on the source node (or locally connected MSS),
+    # in order to allow the deletion/invalidation to proceed.
     my $q = &dbexec($dbh, qq{
 	select
           xp.fileid, f.inblock block_id, f.logical_name,
@@ -118,18 +119,33 @@ sub confirm
 	  left join t_xfer_delete xd
 	    on xd.fileid = f.id
             and (xd.node = ns.id or xd.node = nd.id)
-	  left join (select xdmss.fileid,
-		       ndbuf.id node
-		     from t_xfer_delete xdmss
-		       join t_adm_node ndmss
-		       on ndmss.id=xdmss.node and ndmss.kind='MSS'
-		       join t_adm_link lnmss
-		       on lnmss.to_node=ndmss.id and lnmss.is_local='y'
-		       join t_adm_node ndbuf
-		       on lnmss.from_node=ndbuf.id and ndbuf.kind='Buffer'
-		     ) xdbuf
-	    on xdbuf.fileid = f.id
+          left join t_xfer_invalidate xi
+            on xi.fileid = f.id
+            and xi.node = ns.id
+          left join (select xdmss.fileid,
+                       ndbuf.id node
+                     from t_xfer_delete xdmss
+                       join t_adm_node ndmss
+                       on ndmss.id=xdmss.node and ndmss.kind='MSS'
+                       join t_adm_link lnmss
+                       on lnmss.to_node=ndmss.id and lnmss.is_local='y'
+                       join t_adm_node ndbuf
+                       on lnmss.from_node=ndbuf.id and ndbuf.kind='Buffer'
+                     ) xdbuf
+            on xdbuf.fileid = f.id
             and (xdbuf.node = ns.id or xdbuf.node = nd.id)
+	  left join (select ximss.fileid,
+		       nibuf.id node
+		     from t_xfer_invalidate ximss
+		       join t_adm_node nimss
+		       on nimss.id=ximss.node and nimss.kind='MSS'
+		       join t_adm_link lnimss
+		       on lnimss.to_node=nimss.id and lnimss.is_local='y'
+		       join t_adm_node nibuf
+		       on lnimss.from_node=nibuf.id and nibuf.kind='Buffer'
+		     ) xibuf
+	    on xibuf.fileid = f.id
+            and xibuf.node = ns.id
           join t_xfer_request xrq
             on xp.fileid = xrq.fileid
             and xp.destination = xrq.destination
@@ -142,6 +158,8 @@ sub confirm
           and xt.id is null
           and xd.fileid is null
 	  and xdbuf.fileid is null
+          and xi.fileid is null
+          and xibuf.fileid is null
 	  and ((ns.kind = 'MSS' and nd.kind = 'Buffer')
 	       or (ns.kind = 'Buffer' and nd.kind = 'MSS'
        	           and xsi.from_node is not null)
