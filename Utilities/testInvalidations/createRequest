@@ -66,6 +66,8 @@ exit;
 
 sub test_createRequest{
     my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest($self,@_);
+    print "@valid_args\n";
+    exit;
     my $rid = &PHEDEX::RequestAllocator::Core::createRequest($self,@valid_args);
     print "Created request ",$rid,"\n";
     &PHEDEX::Core::SQL::execute_commit($self);
