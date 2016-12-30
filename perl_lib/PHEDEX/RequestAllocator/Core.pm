@@ -198,6 +198,10 @@ sub validateRequest
 	@typereq = qw( PRIORITY USER_GROUP IS_MOVE IS_STATIC IS_TRANSIENT IS_DISTRIBUTED IS_CUSTODIAL); 
     } elsif ( $h{TYPE} eq 'delete' ) {
 	@typereq = qw( RM_SUBSCRIPTIONS );
+    } elsif ( $h{TYPE} eq 'invalidate' ) {
+	# If needed, pass additional parameters here:
+	@typereq = ();
+	#@typereq = qw( INV_REPLICAS );
     } else {
 	die "type '$h{TYPE}' is not valid\n";
     }
@@ -217,6 +221,12 @@ sub validateRequest
 	die "cannot create request: Time-based deletion requests are not allowed\n";
     }
 
+    # By analogy with the previous two checks, enable if needed
+    # (do we ever want a delayed invalidation/re-transfer?): 
+    #if ($type eq 'invalidate' && $h{TIME_START}) {
+	#die "cannot create request: Time-based invalidation requests are not allowed\n";
+    #}
+
     # Part 0: validate groups
     if ($type eq 'xfer') {
 	die "cannot create request: USER_GROUP $h{USER_GROUP} not found\n"
@@ -229,7 +239,9 @@ sub validateRequest
 
     my ($ds_ids, $b_ids);
 
-    if ($dataformat eq 'tree') { # heirachical representation (user XML)
+    if ($dataformat eq 'lfns') { # user supplied list of LFNs  
+	print "NRDEVEL  TODO: implement processing of the LFNs list\n";
+    } elsif ($dataformat eq 'tree') { # heirachical representation (user XML)
 	# resolve the DBS
 	my $dbs = $data->{NAME};
 	my $db_dbs = &getDbsFromName($self, $dbs);
@@ -284,6 +296,7 @@ sub validateRequest
     } elsif ($dataformat eq 'flat') { # flat data representation (user text)
 	# resolve the dbs
 	my $dbs = $data->{DBS};
+
 	my $db_dbs = &getDbsFromName($self, $dbs);
 	if (! $db_dbs->{ID} ) {
 	    die "dbs '$dbs' does not exist\n";
@@ -434,6 +447,7 @@ TODO:  document format for $data and $nodes hash.
 
 sub createRequest
 {
+    #my ($self, $ds_ids, $b_ids, $f_ids, $node_pairs, %h) = @_;
     my ($self, $ds_ids, $b_ids, $node_pairs, %h) = @_;
 
     my $now = $h{NOW} || &mytimeofday();
@@ -526,3 +540,4 @@ L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
 =cut
 
 1;
+

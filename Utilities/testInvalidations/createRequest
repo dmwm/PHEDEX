@@ -1,0 +1,76 @@
+#!/usr/bin/env perl
+##H
+##H Usage:
+##H   createRequest -db FILE[:SECTION]
+##H
+use strict;
+use warnings;
+
+use FindBin;
+use lib "$FindBin::Bin/../../perl_lib";
+use Data::Dumper;
+
+use Getopt::Long;
+
+use PHEDEX::Core::Help;
+
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Identity;
+use PHEDEX::RequestAllocator::Core;
+use PHEDEX::RequestAllocator::SQL;
+use PHEDEX::Core::SQL;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::XML;
+
+my ($db);
+
+&GetOptions ("db=s"        => \$db,
+	     "help|h"      => sub { &usage() });
+
+# Require  db argument:
+if (@ARGV || !$db)
+{
+    die "DB parameter is missing. Use -h for help.\n";
+}
+
+# Connection is actually a parent class for the SQL objects:
+
+my $self =  { DBCONFIG => $db };
+bless $self;
+my $dbh = &connectToDatabase ($self);
+
+# Define all required parameters for the request: 
+
+my $now = &mytimeofday();
+
+my %h = (
+   NOW  => $now,
+   TYPE => 'invalidate',
+   CLIENT_ID => 9,
+   INSTANCE => 'natalia',
+   COMMENTS => 'this is a test request by Natalia'
+);
+
+#my %h = (CLIENT_ID => 9, TYPE => 'invalidation', INSTANCE => 'nicolo', LEVEL => 'BLOCK', COMMENTS => 'this is a test request by Nicolo', NOW => $now);
+
+# Provide empty data and nodes arrayref for now: 
+my $data;
+#$data->{FORMAT} = 'flat';
+$data->{FORMAT} = 'lfns';
+$data->{DBS} = 'test';
+$data->{DLS} = 'unknown';
+my $nodes = [];  
+
+&test_createRequest($data,$nodes,%h);
+exit;
+
+sub test_createRequest{
+    my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest($self,@_);
+    print "@valid_args\n";
+    exit;
+    my $rid = &PHEDEX::RequestAllocator::Core::createRequest($self,@valid_args);
+    print "Created request ",$rid,"\n";
+    &PHEDEX::Core::SQL::execute_commit($self);
+}
+
+1;
