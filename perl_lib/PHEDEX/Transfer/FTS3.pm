@@ -255,7 +255,7 @@ sub isBusy
     # pending jobs in the FTS queue
     if (defined $from && defined $to) {
 	# FTS states to consider as "pending"
-	my @pending_states = ('Ready', 'Pending', 'Submitted', 'undefined');
+	my @pending_states = ('READY', 'SUBMITTED', 'undefined');
     	# Check per-link busy status based on a maximum number of
 	# "pending" files per link.  Treat undefined as pending until
 	# their state is resolved.
@@ -458,8 +458,6 @@ sub start_transfer_job
                                TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
                            );
-
-    # FIXME: need to parse response!!!! see fts_fob_submitted for FTS2 example
 }
 
 sub setup_callbacks
@@ -508,7 +506,7 @@ sub resume_backend_job
   $self->Logmsg("Resume JOBID=$job->{ID}, FTSjob=",$ftsjob->ID," by adding to monitoring");
 
   #register this job with queue monitor.
-  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
+  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob, $ftsjob->Priority);
   
   # the job has officially started
   $job->{STARTED} = &mytimeofday();
@@ -559,7 +557,7 @@ sub fts_job_submitted
   &output($jobsave, Dumper($ftsjob)) or $self->Fatal("$jobsave: $!");
 
   # Register this job with queue monitor.
-  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
+  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob, $ftsjob->Priority);
   
   # Set priority
   $self->{JOBMANAGER}->addJob(
