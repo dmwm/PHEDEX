@@ -14,8 +14,6 @@ pending...
 
 =head1 METHODS
 
-=over
-
 =cut
 
 
@@ -59,6 +57,8 @@ sub AUTOLOAD
 
 
 =pod
+
+=over
 
 =item expandRequest($self, $dbs, $data, %opts)
 
@@ -182,6 +182,35 @@ sub validateGroup
     my $group_id = $groupmap{ $groupname };
     return $group_id;
 }
+
+=pod
+
+=item validateRequest($self, $data, $nodes, %args)
+
+Checks request parameters according to the request type and data format. 
+Returns validated parameters that can be passed directly to createRequest. 
+TODO: document data formats. 
+
+=over 
+
+=item *
+
+C<$data>  is a  hash reference, where $data->{FORMAT} must match one of the supported 
+formats:  'lfns', 'tree', 'flat', or 'existingrequestdata' as returned by 
+getExistingRequestData, e.g. in UpdateRequest API, and $data->{DBS} is required but not used 
+(a legacy feature?)
+    
+=item *
+
+C<$nodes>  is an  array reference with a list of node names
+
+=item *
+
+C<%args> is a hash used to pass other required parameters: TYPE, CLIENT_ID.
+
+=back
+
+=cut
 
 sub validateRequest
 {
@@ -437,11 +466,10 @@ sub validateRequest
 
 =pod
 
-=item createRequest($self, $data, $nodes, %args)
+=item createRequest($self, $ds_ids, $b_ids, $node_pairs, %h)
 
-Creates a new request, returns the newly created request id.
-
-TODO:  document format for $data and $nodes hash.
+Takes arguments returned by validateRequest. Creates a new request.
+Returns the newly created request id.
 
 =cut
 
@@ -533,9 +561,9 @@ sub createRequest
 
 =back
 
-=head1 SEE ALSO...
+=head1 SEE ALSO
 
-L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
+L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>
 
 =cut
 
