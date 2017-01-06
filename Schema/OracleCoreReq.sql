@@ -21,6 +21,8 @@ insert into t_req_type (id, name)
   values (seq_req_type.nextval, 'xfer');
 insert into t_req_type (id, name)
    values (seq_req_type.nextval, 'delete');
+insert into t_req_type (id, name)
+   values (seq_req_type.nextval, 'invalidate');
 
 
 /* Main request table */
