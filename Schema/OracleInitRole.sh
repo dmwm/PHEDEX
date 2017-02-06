@@ -20,7 +20,12 @@
 ##H                   address
 ##H SITE-NAME       is the name of the site (e.g. "CERN")
 
-[ $# != 3 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
+#[ $# != 3 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
+
+if [ $# -ne 3 ]; then
+   grep "^##H" < $0 | sed 's/^\#\#\H\( \|$\)//'
+   exit 1
+fi
 
 dbparam="$(echo $1 | sed 's/:.*//')"
 section="$(echo $1 | sed 's/.*://')"
