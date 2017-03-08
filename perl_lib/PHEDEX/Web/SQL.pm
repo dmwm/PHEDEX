@@ -2895,7 +2895,9 @@ sub getNodeUsageHistory
             trunc(nvl(avg(d.request_files), 0)) as request_files,
             trunc(nvl(avg(d.request_bytes), 0)) as request_bytes,
             trunc(nvl(avg(d.idle_files), 0)) as idle_files,
-            trunc(nvl(avg(d.idle_bytes), 0)) as idle_bytes
+            trunc(nvl(avg(d.idle_bytes), 0)) as idle_bytes,
+            trunc(nvl(avg(d.miss_files), 0)) as miss_files,
+            trunc(nvl(avg(d.miss_bytes), 0)) as miss_bytes
         from
             t_history_dest d,
             t_adm_node n

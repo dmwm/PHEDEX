@@ -67,6 +67,8 @@ Show how space is being used at a node
   request_bytes      number of bytes requested
   idle_files         number of files that are idle
   idle_bytes         number of bytes that are idle
+  miss_files         number of files subscribed but not transferred yet
+  miss_bytes         number of bytes subscribed but not	transferred yet
 
 =cut
 
@@ -99,7 +101,9 @@ my $map = {
         request_files => 'REQUEST_FILES',
         request_bytes => 'REQUEST_BYTES',
         idle_files => 'IDLE_FILES',
-        idle_bytes => 'IDLE_BYTES'
+        idle_bytes => 'IDLE_BYTES',
+        miss_files => 'MISS_FILES',
+        miss_bytes => 'MISS_BYTES'
     }
 };
 
