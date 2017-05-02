@@ -14,7 +14,7 @@ Show detailed information regarding a verification
 
 =head2 Options
 
- required: one of test or node
+ required: one of node or block
 
  test             test request id
  node             node name, could be multiple
@@ -121,7 +121,7 @@ sub blocktestfiles
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw/ node block kind status test_since test / ],
-                require_one_of => [ qw/ test block / ],
+                require_one_of => [ qw/ node block / ],
                 spec =>
                 {
                     test => { using => 'pos_int', multiple => 1 },
