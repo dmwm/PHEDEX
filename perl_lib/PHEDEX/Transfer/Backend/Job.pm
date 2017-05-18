@@ -358,7 +358,6 @@ sub PrepareJson
                           );
   }
 
-  #print "Using temporary file $file \n";
   $self->{JSONCOPYJOB} = $file;
 
   # be carefull undef are traslate to null strings in json, if they are not present, it is better to remove them
@@ -397,10 +396,7 @@ sub PrepareJson
                 };
 
   my $jsoncopyjob = encode_json($copyjob);
-
-  #print time, " prepared jsoncopyjob $jsoncopyjob \n\n";
   $self->{JSONJOB} = $jsoncopyjob;
-
   print $fh "$jsoncopyjob\n";
   close $fh;
   return $file;
