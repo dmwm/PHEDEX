@@ -375,7 +375,7 @@ sub PrepareJson
 
   my $localuser = $ENV{USER};
   my $localtime = time();
-  my $local_client = qx/fts-transfer-submit --version| cut -d':' -f2|cut -d' ' -f2/;
+  my $local_client = `fts-transfer-submit --version --service http://foo | cut -d':' -f2|cut -d' ' -f2`;
   chomp $local_client;
   my $jobparams = {
                    'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
