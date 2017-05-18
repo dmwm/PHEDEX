@@ -374,22 +374,26 @@ sub PrepareJson
   #some clean up to avoid mis-interpretation of null values
   foreach (@jobfiles) { delete $_->{checksums} unless (defined $_->{checksums}); }
 
+  my $localuser = $ENV{USER};
+  my $localtime = time();
+  my $local_client = qx/fts-transfer-submit --version| cut -d':' -f2|cut -d' ' -f2/;
+  chomp $local_client;
   my $jobparams = {
                    'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
                    'reuse' =>  \0,
-                   'fail_nearline' => \0,
+                   'multihop' => \0,
                    'spacetoken' => $self->{SPACETOKEN},
-  #                 'bring_online' => undef,
+                   'priority' => $self->{PRIORITY},
+                   'bring_online' => -1,
                    'copy_pin_lifetime' => -1,
-  #                 'job_metadata' => undef,
+                   'job_metadata' => { 'issuer' => 'PHEDEX', 'user' => $localuser, 'time' => $localtime, "client"=>"fts-client-".$local_client},
   #                 'source_spacetoken' => undef,
-  #                 'gridftp' => undef,
                    'overwrite' => \0
                   };
 
   my $copyjob = {
-                 'Files'  => \@jobfiles #,
-                 #'params' => $jobparams, # parser does not recognize this
+                 'Files'  => \@jobfiles, 
+                 'Params' => $jobparams
                 };
 
   my $jsoncopyjob = encode_json($copyjob);
