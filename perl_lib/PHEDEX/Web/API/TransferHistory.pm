@@ -20,6 +20,10 @@ after that day ends, to give PhEDEx time to add the statistics to the
 DB tables.  Even waiting this amount of time does not guaruntee that
 more statistics will be added to the day later, but in most cases it
 is sufficient.
+When comparing the numbers of files or bytes within a timebin, it is important
+to only compare the values that share the same event time, e.g. done_, fail_.
+It makes no sense to derive done_bytes / try_bytes for the same timebin,
+because the quantites do not represent events on the same files.
 
 =head2 Options
 
@@ -70,8 +74,8 @@ is sufficient.
   fail_bytes      number of bytes in failed transfers
   expire_files    number of files expired in this timebin, binwidth
   expire_bytes    number of bytes expired in this timebin, binwidth
-  try_files       number of files tried
-  try_bytes       number of bytes tried
+  try_files       number of files in transfers initiated within this timebin
+  try_bytes       number of bytes in transfers initiated within this timebin
   rate            sum(done_bytes)/binwidth
   quality         done_files / (done_files + fail_files)
 
