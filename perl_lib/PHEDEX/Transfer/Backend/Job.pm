@@ -374,18 +374,18 @@ sub PrepareJson
 
   my $localuser = $ENV{USER};
   my $localtime = time();
-  my $local_client = qx/fts-transfer-submit --version --service http:\/\/foo | cut -d':' -f2|cut -d' ' -f2/;
+  my $local_client = qx/fts-transfer-submit --version --service http| cut -d':' -f2|cut -d' ' -f2/;
   chomp $local_client;
   my $jobparams = {
                    'timeout' => 21600,
-                   'verify_checksum' => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ? \1 : \0,
+                   'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
                    'reuse' =>  \0,
                    'multihop' => \0,
                    'spacetoken' => $self->{SPACETOKEN},
                    'priority' => ($self->{PRIORITY}) ? $self->{PRIORITY} : 3,
                    'bring_online' => -1,
                    'copy_pin_lifetime' => -1,
-                   'job_metadata' => { 'issuer' => 'PHEDEX', 'user' => $localuser, 'time' => $localtime, 'client' =>"fts-client-".$local_client},
+                   'job_metadata' => { 'issuer' => 'PHEDEX', 'user' => $localuser, 'time' => $localtime, 'client' =>'fts-client-'.$local_client},
                    'overwrite' => \0
                   };
 
