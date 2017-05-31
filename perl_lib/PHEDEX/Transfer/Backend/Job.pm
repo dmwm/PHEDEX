@@ -372,8 +372,6 @@ sub PrepareJson
   #some clean up to avoid mis-interpretation of null values
   foreach (@jobfiles) { delete $_->{checksums} unless (defined $_->{checksums}); }
 
-  my $localuser = $ENV{USER};
-  my $localtime = time();
   my $local_client = qx/fts-transfer-submit --version --service http| cut -d':' -f2|cut -d' ' -f2/;
   chomp $local_client;
   my $jobparams = {
@@ -385,7 +383,7 @@ sub PrepareJson
                    'priority' => ($self->{PRIORITY}) ? $self->{PRIORITY} : 3,
                    'bring_online' => -1,
                    'copy_pin_lifetime' => -1,
-                   'job_metadata' => { 'issuer' => 'PHEDEX', 'user' => $localuser, 'time' => $localtime, 'client' =>'fts-client-'.$local_client},
+                   'job_metadata' => { 'issuer' => 'PHEDEX', 'client' =>'fts-client-'.$local_client},
                    'overwrite' => \0
                   };
 
