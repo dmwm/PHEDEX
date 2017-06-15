@@ -104,6 +104,9 @@ sub parse_path {
       }
       if ( $call eq 'storageusage' ||
            $call eq 'auth' ||
+	   $call eq 'nodes' ||
+	   $call eq 'getlastrecord' ||
+	   $call eq 'dumpspacequery' ||
            $call eq 'secmod' ||
            $call eq 'bounce' ) {
         $db = 'read';
