@@ -552,7 +552,7 @@ Monitored by L<BlockAllocator|PHEDEX::BlockAllocator::Agent>.
 
 =item t_dps_block_dest.dataset
 
-=item t_dps_block_dataset.priority
+=item t_dps_block_dest.priority
 
 Positive integer representing at what priority this block should be
 transferred.  Lower values are higher priority.
