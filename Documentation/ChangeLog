@@ -1,3 +1,19 @@
+Changes for 4.2.2
+
+Changes for Site Agents
+
+ FTS3 backend:
+ - transfer jobs priorities are now propagated to FTS, see discussion in
+ https://github.com/dmwm/PHEDEX/issues/1068
+ - pass PhEDEx metadata to FTS tasks for hadoop monitoring, see discussion in
+ https://github.com/dmwm/PHEDEX/issues/1085
+ Config templates: 
+ - added example of environment setup for fts client tools installed on cvmfs
+
+Changes for Schema
+
+ - enable/fix help in privilege granting script and OracleCoreBlock.sql 
+
 Changes for 4.2.1
 
 Changes for Site Agents
