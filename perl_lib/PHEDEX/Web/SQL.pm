@@ -1348,6 +1348,8 @@ sub getTransferQueue
                 when 3 then 'normal'
                 when 4 then 'low'
                 when 5 then 'low'
+                when 6 then 'reserved'
+                when 7 then 'reserved'
                 else 'low'
             end,
             case
@@ -1418,6 +1420,8 @@ sub getTransferQueue
                 when 3 then 'normal'
                 when 4 then 'low'
                 when 5 then 'low'
+                when 6 then 'reserved'
+                when 7 then 'reserved'
                 else 'low'
             end priority,
             d.name dataset,
@@ -3913,12 +3917,12 @@ sub updateSubscription
     }
 
     # check priority
-    my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2);
+    my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2, 'reserved' => 3);
     my $priority;
     if (exists $h{PRIORITY})
     {
         $priority = $priomap{$h{PRIORITY}};
-        die "unknown priority, allowed values are 'high', 'normal' or 'low'" if ! defined ($priority);
+        die "unknown priority, allowed values are 'high', 'normal', 'low' or 'reserved' " if ! defined ($priority);
     }
 
     # get current subscription
