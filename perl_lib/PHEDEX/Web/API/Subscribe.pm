@@ -28,7 +28,8 @@ Makes and approves a transfer request, creating data subscriptions.
 		PHEDEX::Core::XML
  level          subscription level, either 'dataset' or 'block'.  Default is
                 'dataset'
- priority       subscription priority, either 'high', 'normal', or 'low'. Default is 'low'
+ priority       subscription priority, either 'high', 'normal', or 'low'. Default is 'low'.
+		A 'reserved' priority is foreseen for the central operations needs.
  move           'y' or 'n', for 'move' or 'replica' subscription.  Default is 'n' (replica)
  static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (growing)
  custodial      'y' or 'n', whether the subscriptions are custodial.  Default is 'n' (non-custodial)
@@ -101,8 +102,8 @@ sub subscribe
     die PHEDEX::Web::Util::http_error(400,"group $args{group} is forbidden") if ($args{group} =~ m/^deprecated-/);
     # default values for options
     # check values of options
-    my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2);
-    die PHEDEX::Web::Util::http_error(400,"unknown priority, allowed values are 'high', 'normal' or 'low'") 
+    my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2, 'reserved' => 3);
+    die PHEDEX::Web::Util::http_error(400,"unknown priority, allowed values are 'high', 'normal', 'low' or 'reserved'") 
 	unless exists $priomap{$args{priority}};
     $args{priority} = $priomap{$args{priority}}; # translate into numerical value
 
