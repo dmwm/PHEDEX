@@ -11,6 +11,8 @@
 ##H -window-size     size in TB for priority windows.  Default 10 TB.
 ##H -request-alloc   method to use when allocating file requests.  Default is BY_AGE
 ##H -probe-chance    probability (0 to 1) that a route is forced on failure
+##H -staging-latency penalty (in secs) for staging to be used in path cost calculation when
+##H                  considering routing from MSS source node
 ##H -external-rate   external source to calculate rate in routeCost, can be a list of files
 ##H
 ##H Request Allocation methods (METHOD):
@@ -26,14 +28,15 @@ use Getopt::Long;
 use PHEDEX::Core::Help;
 use PHEDEX::Infrastructure::FileRouter::Agent;
 
-&GetOptions ("state=s"         => \$args{DROPDIR},
-	     "log=s"           => \$args{LOGFILE},
-	     "db=s"            => \$args{DBCONFIG},
-	     "window-size=n"   => \$args{WINDOW_SIZE},
-	     "request-alloc=s" => \$args{REQUEST_ALLOC},
-	     "probe-chance=f"  => \$args{PROBE_CHANCE},
-             "external-rate=s@" => sub { push(@{$args{EXTERNAL_RATE_FILE}}, split(/,/, $_[1])) }, 
-	     "help|h"           => sub { &usage() });
+&GetOptions ("state=s"           => \$args{DROPDIR},
+	     "log=s"             => \$args{LOGFILE},
+	     "db=s"              => \$args{DBCONFIG},
+	     "window-size=n"     => \$args{WINDOW_SIZE},
+	     "request-alloc=s"   => \$args{REQUEST_ALLOC},
+	     "probe-chance=f"    => \$args{PROBE_CHANCE},
+	     "staging-latency=n" => \$args{STAGING_LATENCY},
+             "external-rate=s@"  => sub { push(@{$args{EXTERNAL_RATE_FILE}}, split(/,/, $_[1])) }, 
+	     "help|h"            => sub { &usage() });
 
 if (!$args{DROPDIR} || !$args{DBCONFIG})
 {

@@ -344,7 +344,7 @@ sub readConfig
     my $e = $self->{ENVIRONMENTS}{common}->Environment();
     $e .= "export PHEDEX_CONFIG_FILE=" .
 	   join(',',@{$self->{CONFIG_FILES}}) .
-          "\n";
+          ";\n";
     $self->{ENVIRONMENTS}{common}->Environment($e);
   }
   $self->{_readTime} = time();
@@ -486,7 +486,7 @@ sub show
     my $pidfile  = $agent->PIDFILE;
 
     print $FH "(\n", $self->getAgentEnviron($agent), "\n",
-	 "export PHEDEX_AGENT_LABEL=",$agent->LABEL,"\n",
+	 "export PHEDEX_AGENT_LABEL=",$agent->LABEL,";\n",
               "(mkdir -p $dropdir && mkdir -p $logdir";
     if ( $agent->STATELINK )
     {
