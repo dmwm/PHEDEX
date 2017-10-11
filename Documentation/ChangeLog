@@ -1,5 +1,14 @@
 Changes for 4.2.2
 
+Changes for central agents: 
+- FileRouter agent: 
+  - expire "no source" transfers quickly to free the queue, fixes issue discussed in 
+    https://github.com/dmwm/PHEDEX/issues/1072 
+  - adjustment to route cost calculations: increase default staging penalty for staging 
+    from 30min to 7 days, to favor source replicas available on disk vs MSS nodes, fix
+    to https://github.com/dmwm/PHEDEX/issues/1100
+  - implemented --staging-latency option which allows to override the default value
+
 Changes for Site Agents
 
  FTS3 backend:
@@ -7,8 +16,10 @@ Changes for Site Agents
  https://github.com/dmwm/PHEDEX/issues/1068
  - pass PhEDEx metadata to FTS tasks for hadoop monitoring, see discussion in
  https://github.com/dmwm/PHEDEX/issues/1085
- Config templates: 
+
+Configuration files: 
  - added example of environment setup for fts client tools installed on cvmfs
+ - improve config files processing, see https://github.com/dmwm/PHEDEX/issues/1101
 
 Changes for Schema
 
