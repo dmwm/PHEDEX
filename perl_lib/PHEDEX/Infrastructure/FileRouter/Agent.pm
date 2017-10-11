@@ -964,7 +964,7 @@ sub routeFiles
 	my %fstats;
 	foreach my $req (@failedreqs) {
 	    # state 3='no path to destination', use shorter expiration time (2 to 5 hours default) 
-	    # state 4='no source replicas', use standard expiration time (7 to 10 hours default)
+	    # state 4='no source replicas', expire quickly to free the queue (0 to 3 hours)
 	    my ($state, $texpire);
 	    my $dest = $$req{DESTINATION};
 	    my $file = $$req{FILEID};
@@ -975,7 +975,7 @@ sub routeFiles
 	    } else {
 		$fstats{$dest}{'no source replicas'}++;
 		$state = 4;
-		$texpire = $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER);
+		$texpire = $now + rand($EXPIRE_JITTER); 
 	    }
 	    my $n = 1;
 	    push(@{$fargs{$n++}}, $state);
