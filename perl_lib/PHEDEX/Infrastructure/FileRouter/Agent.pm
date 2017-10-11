@@ -45,7 +45,7 @@ sub new
 		  MIN_REQ_EXPIRE => 7,          # Minimum time (hours) to expire a request/paths
 		  EXPIRE_JITTER => 3,           # Duration (hours) which to randomize expiration on requests/paths
 		  LATENCY_THRESHOLD => 3,       # Maximum estimated latency in days to determine if a path is valid
-		  STAGING_LATENCY => 7*24*3600, # staging latency used in routeCost, we set it high to prefer disk source 
+		  STAGING_LATENCY => 7*24*3600, # staging latency for routeCost, intentionally high to favor disk source
 		  PROBE_CHANCE => 0.02,         # Probability to force routing on failure
 		  DEACTIV_ATTEMPTS => 5,        # Mininum number of request attempts before other blocks are considered
 		  DEACTIV_TIME => 30,           # Minimum age (days) of requests before a block is deactivated
