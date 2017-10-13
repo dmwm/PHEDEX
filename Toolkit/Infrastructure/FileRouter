@@ -12,7 +12,7 @@
 ##H -request-alloc   method to use when allocating file requests.  Default is BY_AGE
 ##H -probe-chance    probability (0 to 1) that a route is forced on failure
 ##H -staging-latency penalty (in secs) for staging to be used in path cost calculation when
-##H                  considering routing from MSS source node
+##H                  considering routing from MSS source node. Default 7*24*3600 secs, or 7 days
 ##H -external-rate   external source to calculate rate in routeCost, can be a list of files
 ##H
 ##H Request Allocation methods (METHOD):
