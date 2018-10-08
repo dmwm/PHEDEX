@@ -21,6 +21,7 @@ our $WINDOW_SIZE;
 our $MIN_REQ_EXPIRE;
 our $EXPIRE_JITTER;
 our $LATENCY_THRESHOLD;
+our $STAGING_LATENCY;
 our $PROBE_CHANCE;
 our $DEACTIV_ATTEMPTS;
 our $DEACTIV_TIME;
@@ -44,6 +45,7 @@ sub new
 		  MIN_REQ_EXPIRE => 7,          # Minimum time (hours) to expire a request/paths
 		  EXPIRE_JITTER => 3,           # Duration (hours) which to randomize expiration on requests/paths
 		  LATENCY_THRESHOLD => 3,       # Maximum estimated latency in days to determine if a path is valid
+		  STAGING_LATENCY => 7*24*3600, # staging latency for routeCost, intentionally high to favor disk source
 		  PROBE_CHANCE => 0.02,         # Probability to force routing on failure
 		  DEACTIV_ATTEMPTS => 5,        # Mininum number of request attempts before other blocks are considered
 		  DEACTIV_TIME => 30,           # Minimum age (days) of requests before a block is deactivated
@@ -73,6 +75,7 @@ sub new
     $MIN_REQ_EXPIRE    = $$self{MIN_REQ_EXPIRE}*3600;
     $EXPIRE_JITTER     = $$self{EXPIRE_JITTER}*3600;
     $LATENCY_THRESHOLD = $$self{LATENCY_THRESHOLD}*24*3600;
+    $STAGING_LATENCY   = $$self{STAGING_LATENCY};
     $PROBE_CHANCE      = $$self{PROBE_CHANCE};
     $DEACTIV_ATTEMPTS  = $$self{DEACTIV_ATTEMPTS};
     $DEACTIV_TIME      = $$self{DEACTIV_TIME}*24*3600;
@@ -130,6 +133,7 @@ sub report_config
 				   'MIN_REQ_EXPIRE=%0.2f hours',
 				   'EXPIRE_JITTER=%0.2f hours',
 				   'LATENCY_THRESHOLD=%0.2f days',
+				   'STAGING_LATENCY=%i secs',
 				   'PROBE_CHANCE=%0.2f',
 				   'DEACTIV_ATTEMPTS=%i',
 				   'DEACTIV_TIME=%0.2f days',
@@ -140,6 +144,7 @@ sub report_config
 			      $MIN_REQ_EXPIRE/3600,
 			      $EXPIRE_JITTER/3600,
 			      $LATENCY_THRESHOLD/(24*3600),
+			      $STAGING_LATENCY,
 			      $PROBE_CHANCE,
 			      $DEACTIV_ATTEMPTS,
 			      $DEACTIV_TIME/(24*3600),
@@ -964,7 +969,7 @@ sub routeFiles
 	my %fstats;
 	foreach my $req (@failedreqs) {
 	    # state 3='no path to destination', use shorter expiration time (2 to 5 hours default) 
-	    # state 4='no source replicas', use standard expiration time (7 to 10 hours default)
+	    # state 4='no source replicas', expire quickly to free the queue (0 to 3 hours)
 	    my ($state, $texpire);
 	    my $dest = $$req{DESTINATION};
 	    my $file = $$req{FILEID};
@@ -975,7 +980,7 @@ sub routeFiles
 	    } else {
 		$fstats{$dest}{'no source replicas'}++;
 		$state = 4;
-		$texpire = $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER);
+		$texpire = $now + rand($EXPIRE_JITTER); 
 	    }
 	    my $n = 1;
 	    push(@{$fargs{$n++}}, $state);
@@ -1057,12 +1062,12 @@ sub routeCost
 	       && exists $$costs{$node}{$state}
 	       && exists $$costs{$node}{$state}{$sizebin});
 
-    # Initialise the starting point: instant access for staged file,
-    # 0h30 for not staged.  We optimise the transfer cost as the
+    # Initialise the starting point: instant access for staged file, add
+    # STAGING_LATENCY for not staged.  We optimise the transfer cost as the
     # estimated time of arrival, i.e. minimise transfer time,
     # accounting for the link latency (existing transfer queue).
     my %todo = ($node => 1);
-    my $latency = $state ? 0 : 1800;
+    my $latency = $state ? 0 : $STAGING_LATENCY;
     my $paths = $$costs{$node}{$state}{$sizebin} = {};
     $$paths{$node} = {
 	SRC_NODE => $node,

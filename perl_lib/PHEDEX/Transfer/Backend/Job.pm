@@ -358,14 +358,12 @@ sub PrepareJson
                           );
   }
 
-  #print "Using temporary file $file \n";
   $self->{JSONCOPYJOB} = $file;
 
   # be carefull undef are traslate to null strings in json, if they are not present, it is better to remove them
   my @jobfiles = map(
                      { sources => [ $_->{SOURCE} ],
                        destinations => [ $_->{DESTINATION} ],
-  #                     metadata => undef,
                        filesize => $_->{FILESIZE},
                        checksums => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ? $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} : undef,
                      }, values %{ $self->{FILES} } 
@@ -374,29 +372,31 @@ sub PrepareJson
   #some clean up to avoid mis-interpretation of null values
   foreach (@jobfiles) { delete $_->{checksums} unless (defined $_->{checksums}); }
 
+  my $local_client = qx/fts-transfer-submit --version --service http| cut -d':' -f2|cut -d' ' -f2/;
+  chomp $local_client;
   my $jobparams = {
+                   'timeout' => 21600,
                    'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
                    'reuse' =>  \0,
-                   'fail_nearline' => \0,
+                   'multihop' => \0,
                    'spacetoken' => $self->{SPACETOKEN},
-  #                 'bring_online' => undef,
+                   'priority' => ($self->{PRIORITY}) ? $self->{PRIORITY} : 3,
+                   'bring_online' => -1,
                    'copy_pin_lifetime' => -1,
-  #                 'job_metadata' => undef,
-  #                 'source_spacetoken' => undef,
-  #                 'gridftp' => undef,
+                   'job_metadata' => { 'issuer' => 'PHEDEX', 'client' =>'fts-client-'.$local_client},
                    'overwrite' => \0
                   };
 
+  #some clean up to avoid mis-interpretation of null values
+  delete $jobparams->{'spacetoken'} unless (defined $jobparams->{'spacetoken'});
+
   my $copyjob = {
-                 'Files'  => \@jobfiles #,
-                 #'params' => $jobparams, # parser does not recognize this
+                 'Files'  => \@jobfiles, 
+                 'Params' => $jobparams
                 };
 
   my $jsoncopyjob = encode_json($copyjob);
-
-  #print time, " prepared jsoncopyjob $jsoncopyjob \n\n";
   $self->{JSONJOB} = $jsoncopyjob;
-
   print $fh "$jsoncopyjob\n";
   close $fh;
   return $file;

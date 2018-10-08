@@ -1064,16 +1064,17 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // Priority
       this.priority = {
-        values:['high','normal','low'],
+        values:['high','normal','low','reserved'],
         _default: this.params.priority || 2,
-        help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p>',
+        help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p><p>Do not request <strong>reserved</strong> priority, we keep this queue empty for central operations needs.</p>',
         label:'Priority'
       };
       if ( this.params.priority ) {
         switch (this.params.priority) {
-          case 0: case 'high':   { this.priority._default = 0; break; }
-          case 1: case 'normal': { this.priority._default = 1; break; }
-          case 2: case 'low':    { this.priority._default = 2; break; }
+          case 0: case 'high':     { this.priority._default = 0; break; }
+          case 1: case 'normal':   { this.priority._default = 1; break; }
+          case 2: case 'low':      { this.priority._default = 2; break; }
+          case 3: case 'reserved': { this.priority._default = 3; break; } 
         }
       }
       this.makeControlRadio(this.priority,form);

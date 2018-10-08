@@ -83,13 +83,14 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             priorityhi:  'Make high priority',
             priorityno:  'Make normal priority',
             prioritylo:  'Make low priority',
+            priorityre:  'Make reserved priority',
             groupchange: 'Change group',
             deletedata:  'Delete this data'
           },
           groups:
           {
             'suspend':['suspend', 'unsuspend'],
-            'priority':['priorityhi', 'priorityno', 'prioritylo', 'groupchange'],
+            'priority':['priorityhi', 'priorityno', 'prioritylo', 'priorityre', 'groupchange'],
             'delete':['deletedata']
           }
         },
@@ -343,6 +344,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               case 'groupchange': { args.group = obj.update.group;   break; }
               case 'suspend':     { args.suspend_until = 9999999999; break; }
               case 'unsuspend':   { args.suspend_until = 0;          break; }
+              case 'priorityre':  { args.priority = 'reserved';      break; }
               case 'prioritylo':  { args.priority = 'low';           break; }
               case 'priorityno':  { args.priority = 'normal';        break; }
               case 'priorityhi':  { args.priority = 'high';          break; }
@@ -1317,16 +1319,18 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 
 // Priority...
         menu = [
-          { text: 'any',    value: 'any' },
-          { text: 'low',    value: 'low' },
-          { text: 'normal', value: 'normal' },
-          { text: 'high',   value: 'high' }
+          { text: 'any',      value: 'any' },
+          { text: 'reserved', value: 'reserved' },
+          { text: 'low',      value: 'low' },
+          { text: 'normal',   value: 'normal' },
+          { text: 'high',     value: 'high' }
         ];
         switch (_filter.priority) {
-          case 'high':   { _default = 'high';   break; }
-          case 'normal': { _default = 'normal'; break; }
-          case 'low':    { _default = 'low';    break; }
-          default:       { _default = 'any';    break; }
+          case 'high':     { _default = 'high';   break; }
+          case 'normal':   { _default = 'normal'; break; }
+          case 'low':      { _default = 'low';    break; }
+          case 'reserved': { _default = 'reserved';    break; }
+          default:         { _default = 'any';    break; }
         }
         this.filterButton('phedex-filterpanel-priority',menu,_default);
 

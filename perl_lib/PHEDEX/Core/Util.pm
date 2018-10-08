@@ -57,7 +57,8 @@ sub deep_copy {
 my %priority_names = (
     0 => 'high',
     1 => 'normal',
-    2 => 'low' );
+    2 => 'low',
+    3 => 'reserved' );
 
 # when $local_remote is false, $priority is interepreted as-is
 #

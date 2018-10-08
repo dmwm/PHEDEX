@@ -1,3 +1,13 @@
+* Changes for 2.3.24
+
+ BlockTestFiles  API: fix inconsistent required parameters, see https://github.com/dmwm/PHEDEX/issues/1081
+ TransferHistory API: explain the try_ values and the limitations of their use, see details in 
+                      https://github.com/dmwm/PHEDEX/issues/1087
+
+* Changes for 2.3.23
+
+ NodeUsageHistory API: now also shows stats for missing data: files and bytes.
+ 
 * Changes for 2.3.22
 
  Inject API: first replica of newly injected files is created in 'staged' state on Disk nodes
