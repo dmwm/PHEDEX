@@ -79,7 +79,8 @@ use strict;
 use base 'PHEDEX::Core::DB';
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Timing;
-use PHEDEX::Web::FrontendAuth;
+#use PHEDEX::Web::FrontendAuth;
+use PHEDEX::Web::LocalAuth;
 use PHEDEX::Web::Util;
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
@@ -362,7 +363,8 @@ sub initSecurity
       $args{DBUSER} = $dbparam->{DBH_DBUSER};
       $args{DBPASS} = $dbparam->{DBH_DBPASS};
   }
-  my $secmod = new PHEDEX::Web::FrontendAuth({%args});
+  #my $secmod = new PHEDEX::Web::FrontendAuth({%args});
+  my $secmod = new PHEDEX::Web::LocalAuth({%args});
   if ( ! $secmod->init($self) )
   {
       die "cannot initialise security module\n";
