@@ -190,10 +190,10 @@ sub getSitesFromFrontendRoles
 {
   my $self = shift;
   my ($roles,$role,%sites,@sites,$site,$sql,$sth);
-  #die "NRDEBUG STOP in getSitesFromFrontendRoles" ;
+  print "NRDEBUG 0 in getSitesFromFrontendRoles" ;
   return if $self->{BASIC};
   $roles = $self->getRoles();
-
+  PHEDEX::Web::Util::dump_debug_data_to_file($roles, "roles", "As returned by LocalAuth::getRoles");
   $sql = qq{ select p.name phedex from phedex_node p
                join site s on p.site = s.id
                join site_cms_name_map cmap on cmap.site_id = s.id
