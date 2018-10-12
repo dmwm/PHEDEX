@@ -59,7 +59,7 @@ sub invoke { return auth(@_); }
 sub auth
 {
   my ($core,%args) = @_;
-
+  PHEDEX::Web::Util::dump_debug_data_to_file(\%args, "roles", "Dump %args passed to auth API");
   $core->{SECMOD}->reqAuthnCert() if $args{require_cert};  
   $core->{SECMOD}->reqAuthnPasswd() if $args{require_passwd};  
   my $auth = $core->getAuth($args{ability});
