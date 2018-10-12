@@ -747,5 +747,17 @@ sub error_document
     }
     return undef;
 }
+# for debugging purpose only 
+# will dump the passed by reference data structure with timestamp and comment 
+# into a file in a local /tmp/ directory
+sub dump_debug_data_to_file:
+{ 
+    my ($data, $filename, $comment) = @_;
+    open( my $fh, '>>', '/tmp/' . $filename . ".phedex_debug_dump");
+    print $fh " ========= \n Time now: \n" . time();
+    print $fh "\n ========= " . $comment ." \n";
+    print $fh Dumper($data);
+    close $fh;
+}
 
 1;
