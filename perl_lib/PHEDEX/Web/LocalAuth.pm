@@ -190,7 +190,7 @@ sub getSitesFromFrontendRoles
 {
   my $self = shift;
   my ($roles,$role,%sites,@sites,$site,$sql,$sth);
-  print "NRDEBUG 0 in getSitesFromFrontendRoles" ;
+  PHEDEX::Web::Util::dump_debug_data_to_file($self, "roles", " Dump self in getSitesFromFrontendRoles");
   return if $self->{BASIC};
   $roles = $self->getRoles();
   PHEDEX::Web::Util::dump_debug_data_to_file($roles, "roles", "As returned by LocalAuth::getRoles");
