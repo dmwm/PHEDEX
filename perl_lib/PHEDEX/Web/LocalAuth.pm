@@ -213,7 +213,6 @@ sub getSitesFromLocalRoles
         if ( ${$_}[0] eq 'phedex' && ${$_}[1] eq ${$role}[1] ) {
           return ${$_}[2];
         }
-        $nodename = &get_node_name('phedex', ${$_}[1]);
         push @sites,${$_}[2];
       }
     }
