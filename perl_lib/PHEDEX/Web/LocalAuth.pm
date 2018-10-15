@@ -217,6 +217,7 @@ sub getSitesFromLocalRoles
       }
     }
   }
+  PHEDEX::Web::Util::dump_debug_data_to_file(\@$sites, "sites", "dump sites in getSitesFromLocalRoles");
   return \@sites;
 }
 
