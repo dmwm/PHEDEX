@@ -490,7 +490,8 @@ sub auth_nodes
     # scope role, then build a list of nodes to check for based on the
     # site->node mapping in the SecurityModule
     if (!$global_scope && @auth_sites) {
-      @auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
+      #@auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
+      @auth_nodes = @{ $self->{SECMOD}->getSitesFromLocalRoles() };
       &dump_debug_data_to_file(\@auth_nodes,'nodes',' auth_nodes: as returned by getSitesFromFrontendRoles')
     }
 
