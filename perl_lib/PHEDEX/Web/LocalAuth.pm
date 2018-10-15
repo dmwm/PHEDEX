@@ -191,7 +191,7 @@ sub getSitesFromLocalRoles
   my $self = shift;
   my $login = $self->getUsername();
   # Standard cmsweb location for PhEDEx files:
-  my $input_dir = "/data/srv/state/phedex/etc";
+  my $input_dir = "/data/srv/state/phedex/etc/";
   my ($json_names, $names, $json_siteroles, $siteroles, @sites);
   # Site names map from a local file:
   {
