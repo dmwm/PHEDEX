@@ -755,7 +755,7 @@ sub dump_debug_data_to_file:
 { 
     my ($data, $filename, $comment) = @_;
     open( my $fh, '>>', '/tmp/' . $filename . ".phedex_debug_dump");
-    print $fh " ========= \n Time now: \n" . time();
+    print $fh " ========= \n Time now: \n" . localtime time();
     print $fh "\n ========= " . $comment ." \n";
     print $fh Dumper($data);
     close $fh;
