@@ -3,7 +3,7 @@ use strict;
 use DBI;
 use Data::Dumper;
 use Text::Unaccent;
-use JSON:XS;
+use JSON::XS;
 
 my ($ExtraNodes,$UID);
 
