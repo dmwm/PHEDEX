@@ -3,6 +3,7 @@ use strict;
 use DBI;
 use Data::Dumper;
 use Text::Unaccent;
+use JSON:XS;
 
 my ($ExtraNodes,$UID);
 
@@ -14,14 +15,11 @@ sub new {
   my $self = {};
   bless ($self, $class);
 
-  #my @settable = qw(DBNAME DBUSER DBPASS HEADERS_IN);
-  my @settable = qw(SITE_ROLES_FILE SITE_NAMES_FILE HEADERS_IN);
+  my @settable = qw(DBNAME DBUSER DBPASS HEADERS_IN);
   $self->{DBNAME} = undef;
   $self->{DBUSER} = undef;
   $self->{DBPASS} = undef;
   $self->{DBHANDLE} = undef;
-  $self->{SITE_ROLES_FILE} = undef;
-  $self->{SITE_NAMES_FILE} = undef;
 
   while( my ($opt,$val) = each %$options) {
     warn "No such option: $opt" if ! grep (/^$opt$/,@settable);
@@ -183,6 +181,43 @@ sub getSitesForUserRole
     $sites{$site->[0]}++;
   }
   @sites = keys %sites;
+  return \@sites;
+}
+
+# Replacement for getSitesFromFrontendRoles:
+# get sites from local dump of SiteDB site-names and site-responsibilities APIs 
+sub getSitesFromLocalRoles
+{
+  my $self = shift;
+  my $login = $self->getUsername();
+  # Standard cmsweb location for PhEDEx files:
+  my $input_dir = "/data/srv/state/phedex/etc";
+  my ($json_names, $names, $json_siteroles, $siteroles, @sites);
+  # Site names map from a local file:
+  {
+    open(F, $input_dir . "site-names.json");
+    local $/ = undef;
+    $json_names = <F>;
+  }
+  # Site roles map from a local file:
+  {
+    open(F, $input_dir . "site-responsibilities.json");
+    local $/ = undef;
+    $json_siteroles = <F>;
+  }
+  $names = decode_json($json_names);
+  $siteroles = decode_json($json_siteroles);
+  foreach my $role (@{$siteroles->{'result'}}) {
+    if ( ${$role}[0] eq $login ) { 
+      foreach (@{$names->{'result'}}) {
+        if ( ${$_}[0] eq 'phedex' && ${$_}[1] eq ${$role}[1] ) {
+          return ${$_}[2];
+        }
+        $nodename = &get_node_name('phedex', ${$_}[1]);
+        push @sites,${$_}[2];
+      }
+    }
+  }
   return \@sites;
 }
 
