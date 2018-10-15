@@ -491,6 +491,7 @@ sub auth_nodes
     # site->node mapping in the SecurityModule
     if (!$global_scope && @auth_sites) {
       @auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
+      &dump_debug_data_to_file(\@auth_nodes,'nodes',' auth_nodes: as returned by getSitesFromFrontendRoles')
     }
 
     # Get a list of nodes from the DB. 'X' nodes are obsolete nodes
