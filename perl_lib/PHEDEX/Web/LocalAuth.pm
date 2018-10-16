@@ -199,13 +199,13 @@ sub getSitesFromLocalRoles
     local $/ = undef;
     $json_names = <F>;
   }
+  $names = decode_json($json_names);
   # Site roles map from a local file:
   {
     open(F, $input_dir . "site-responsibilities.json");
     local $/ = undef;
     $json_siteroles = <F>;
   }
-  $names = decode_json($json_names);
   $siteroles = decode_json($json_siteroles);
   PHEDEX::Web::Util::dump_debug_data_to_file($names, "names", "in Local");
   PHEDEX::Web::Util::dump_debug_data_to_file($siteroles, "roles", "in Local");
