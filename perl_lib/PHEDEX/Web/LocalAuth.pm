@@ -130,6 +130,7 @@ sub getDN         { return (shift)->{HEADER}{'cms-authn-dn'}; }
 sub getBrowserDN  { return (shift)->{HEADER}{ssl_client_s_dn}; }
 sub getCert       { return (shift)->{HEADER}{ssl_client_cert}; }
 sub getUsername   { return (shift)->{HEADER}{'cms-authn-name'}; }
+sub getUserLogin   { return (shift)->{HEADER}{'cms-authn-login'}; }
 sub getEmail      { return (shift)->{USEREMAIL}; }
 
 sub getRoles {
@@ -189,8 +190,7 @@ sub getSitesForUserRole
 sub getSitesFromLocalRoles
 {
   my $self = shift;
-  my $login = $self->getUsername();
-  die "STOP use = $user \n";
+  my $login = $self->getUserLogin();
   # Standard cmsweb location for PhEDEx files:
   my $input_dir = "/data/srv/state/phedex/etc/";
   my ($json_names, $names, $json_siteroles, $siteroles, @sites);
