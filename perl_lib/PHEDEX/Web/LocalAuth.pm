@@ -207,20 +207,16 @@ sub getSitesFromLocalRoles
     $json_siteroles = <F>;
   }
   $siteroles = decode_json($json_siteroles);
-  PHEDEX::Web::Util::dump_debug_data_to_file($names, "names", "in Local");
-  PHEDEX::Web::Util::dump_debug_data_to_file($siteroles, "roles", "in Local");
   my @sites=['Blah'];
   foreach my $role (@{$siteroles->{'result'}}) {    
     if ( ${$role}[0] eq $login ) { 
       foreach (@{$names->{'result'}}) {
         if ( ${$_}[0] eq 'phedex' && ${$_}[1] eq ${$role}[1] ) {
-          return ${$_}[2];
+          push @sites,${$_}[2];
         }
-        push @sites,${$_}[2];
       }
     }
   }
-  PHEDEX::Web::Util::dump_debug_data_to_file(\@sites, "sites", "dump sites in getSitesFromLocalRoles");
   return \@sites;
 }
 
