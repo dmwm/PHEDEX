@@ -190,6 +190,7 @@ sub getSitesFromLocalRoles
 {
   my $self = shift;
   my $login = $self->getUsername();
+  die "STOP use = $user \n";
   # Standard cmsweb location for PhEDEx files:
   my $input_dir = "/data/srv/state/phedex/etc/";
   my ($json_names, $names, $json_siteroles, $siteroles, @sites);
@@ -207,8 +208,8 @@ sub getSitesFromLocalRoles
     $json_siteroles = <F>;
   }
   $siteroles = decode_json($json_siteroles);
-  foreach my $role (@{$siteroles->{'result'}}) {    
-    if ( ${$role}[0] eq $login ) { 
+  foreach my $role (@{$siteroles->{'result'}}) {
+    if ( ${$role}[0] eq $login ) {
       foreach (@{$names->{'result'}}) {
         if ( ${$_}[0] eq 'phedex' && ${$_}[1] eq ${$role}[1] ) {
           push @sites,${$_}[2];
