@@ -192,7 +192,7 @@ sub getSitesFromLocalRoles
   my $login = $self->getUsername();
   # Standard cmsweb location for PhEDEx files:
   my $input_dir = "/data/srv/state/phedex/etc/";
-  my ($json_names, $names, $json_siteroles, $siteroles);
+  my ($json_names, $names, $json_siteroles, $siteroles, @sites);
   # Site names map from a local file:
   {
     open(F, $input_dir . "site-names.json");
@@ -207,7 +207,6 @@ sub getSitesFromLocalRoles
     $json_siteroles = <F>;
   }
   $siteroles = decode_json($json_siteroles);
-  my @sites=['Blah'];
   foreach my $role (@{$siteroles->{'result'}}) {    
     if ( ${$role}[0] eq $login ) { 
       foreach (@{$names->{'result'}}) {
