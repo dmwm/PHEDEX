@@ -102,6 +102,7 @@ our (%params);
 	    CONFIG_FILE => undef,
             CONFIG => undef,
 	    SECMOD_CONFIG => undef,
+	    SECMOD_LOCAL_PATH => undef,
 	    AUTHZ => undef,
             REQUEST_HANDLER => undef,
 	    HEADERS_IN => undef,
@@ -340,9 +341,10 @@ sub initSecurity
   my $self = shift;
 
   my %args;
-  if ($self->{SECMOD_CONFIG}) {
-      # If a config file is given, we use that
-      $args{CONFIG} = $self->{SECMOD_CONFIG};
+
+  if ($self->{CONFIG}{SECMOD_LOCAL_PATH}) {
+      # If a local path is configured, use local files for initializing the security model:
+      $args{LOCAL_PATH} = $self->{CONFIG}{SECMOD_LOCAL_PATH};
   } else {
       # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
       my $config = $self->{CONFIG};
