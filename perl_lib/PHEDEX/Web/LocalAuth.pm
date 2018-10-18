@@ -185,7 +185,6 @@ sub getRoles {
 sub getSitesForUserRole
 {
   my ($self,$role) = @_;
-  die "STOPHERE in getSitesForUserRole for role: $role";
   my ($roles,%sites,@sites,$site,$sql,$sth);
   return if $self->{BASIC};
   $roles = $self->getRoles();
@@ -209,7 +208,6 @@ sub getSitesForUserRole
     $sites{$site->[0]}++;
   }
   @sites = keys %sites;
-  
   return \@sites;
 }
 
