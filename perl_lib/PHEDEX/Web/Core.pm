@@ -378,6 +378,8 @@ sub initSecurity
   if ( $self->{CONFIG}{TESTING_MODE} ) {
     my @nodes = PHEDEX::Web::Util::fetch_nodes($self);
     $self->{SECMOD}->setTestNodes(\@nodes);
+    PHEDEX::Web::Util::dump_debug_data_to_file(\@nodes, "nodes", "fetch_nodes result in Core::initSecurity");
+    die "TESTING_MODE:  STOP in Core::initSecurity ";
   }
 
   return 1;
