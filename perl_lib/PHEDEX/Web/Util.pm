@@ -573,7 +573,6 @@ sub fetch_nodes
         my $roles = $$self{SECMOD}->getRoles();
         PHEDEX::Web::Util::dump_debug_data_to_file($roles,
           "roles", "Roles in Web::Util::fetch_nodes");
-        die "STOP in fetch_nodes";
         my @to_check = map { lc $_ } split /\|\|/, $args{web_user_auth};
         my $roles_ok = 0;
         foreach my $role (@to_check) {
@@ -607,6 +606,9 @@ sub fetch_nodes
             }
 #           If not a global admin and no authorised sites, quit
 	    @auth_nodes = keys %auth_sites;
+        PHEDEX::Web::Util::dump_debug_data_to_file(\@auth_nodes,
+          "auth_nodes", "Auth nodes in Web::Util::fetch_nodes");
+        die "STOP in fetch_nodes";
             return unless @auth_nodes;
         }
     }
