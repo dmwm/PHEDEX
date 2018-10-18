@@ -588,7 +588,6 @@ sub fetch_nodes
                               grep($_ eq 'phedex', @{$$roles{'pada admin'}}));
 
         return unless ($roles && ($roles_ok || $global_admin));
-        die "STOP for auth nodes in fetch_nodes";
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
