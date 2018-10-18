@@ -196,10 +196,10 @@ sub getSitesForUserRole
   }
   my $siteroles = decode_json($json_siteroles);
   my @nodes;
-  foreach (@{$siteroles->{'result'}}) {
-    if ($($_)[0] eq $login && $($_)[2] eq $role ) {
+  foreach my $entry (@{$siteroles->{'result'}}) {
+    if (${$entry}[0] eq $login && ${$entry}[2] eq $role ) {
       foreach my $node (keys %sitemap) {
-        if ($sitemap{$node} eq $($_)[1]) {
+        if ($sitemap{$node} eq ${$entry}[1]) {
           push $node, @nodes;
         }
       }
