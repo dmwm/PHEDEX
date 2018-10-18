@@ -571,6 +571,9 @@ sub fetch_nodes
     my @auth_nodes;
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
         my $roles = $$self{SECMOD}->getRoles();
+        PHEDEX::Web::Util::dump_debug_data_to_file($roles,
+          "roles", "Roles in Web::Util::fetch_nodes");
+        die "STOP in fetch_nodes";
         my @to_check = map { lc $_ } split /\|\|/, $args{web_user_auth};
         my $roles_ok = 0;
         foreach my $role (@to_check) {
