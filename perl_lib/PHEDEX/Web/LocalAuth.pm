@@ -103,6 +103,8 @@ sub init {
     $self->{USERID} = $self->getIDfromDN($self->getDN());
     $self->getUserInfoFromID($self->{USERID});
   }
+  PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod", 
+    "Dump secmod from  LocalAuth::init");
   return 1;
 }
 
