@@ -15,13 +15,18 @@ sub new {
   my $self = {};
   bless ($self, $class);
 
-  my @settable = qw(LOCAL_PATH DBNAME DBUSER DBPASS HEADERS_IN);
-  $self->{LOCAL_PATH} = undef;
+  my @settable = qw(
+                    DBNAME
+                    DBUSER
+                    DBPASS
+                    HEADERS_IN
+                    FILES_PATH
+                    );
   $self->{DBNAME} = undef;
   $self->{DBUSER} = undef;
   $self->{DBPASS} = undef;
   $self->{DBHANDLE} = undef;
-
+  $self->{FILES_PATH};
   while( my ($opt,$val) = each %$options) {
     warn "No such option: $opt" if ! grep (/^$opt$/,@settable);
     $self->{$opt} = $val;
@@ -70,15 +75,27 @@ sub init {
     die  "Could not connect to SiteDB" if $@;
     $self->{BASIC} = 0;
   }
-  if ( $self->{LOCAL_PATH} ) {
-    # Check that all required local files are readable:
+  if ( $self->{FILES_PATH} ) {
+    # Assuming that all files live in the same location, we define
+    # all required files here and check that they exist and are readable:
     my @required_files = qw(
                              site-names.json
                              site-responsibilities.json
                            );
-    foreach ( map (($self->{LOCAL_PATH} . $_ ), @required_files)) {
+    foreach ( map (($self->{FILES_PATH} . $_ ), @required_files)) {
       -r $_  or die "Could not read file $_";
     }
+    # To minimize modification for the API changes, instead of passing every
+    # file each required fiel as configuration parameter, we add attribute
+    # for each file with a full path based on the file name:
+    my $attr;
+    foreach ( @required_files)) {
+      $attr = s/-/_/;
+      $attr = s/.json$//;
+      $self->{$attr} = $self->{FILES_PATH} . $_;
+    }
+  } else {
+    die "FILES_PATH undefined. Make sure that secmod-files-path is configured."
   }
   $self->{ROLES}=$self->getRoles();
   $self->{USERNAME}=$self->{HEADER}{'cms-authn-login'};
@@ -86,7 +103,6 @@ sub init {
     $self->{USERID} = $self->getIDfromDN($self->getDN());
     $self->getUserInfoFromID($self->{USERID});
   }
-
   return 1;
 }
 
@@ -196,7 +212,7 @@ sub getSitesForUserRole
 }
 
 # Replacement for getSitesFromFrontendRoles:
-# get sites from local dump of SiteDB site-names and site-responsibilities APIs 
+# get sites from local dump of SiteDB site-names and site-responsibilities APIs
 sub getSitesFromLocalRoles
 {
   my $self = shift;
@@ -292,22 +308,30 @@ sub getUsersWithRoleForSite {
 
 # @params:  none
 # @returns:  hash of site names pointing to array of phedex nodes
+# NR - it is actually other way around (as sub name  suggests)
+# and it is a flat structure:
+#          'T2_CH_CSCS' => 'CSCS',
+#          'T0_CH_CERN_MSS' => 'CERN Tier-0',
+#          'T0_CH_CERN_Export' => 'CERN Tier-0',
+
 sub getPhedexNodeToSiteMap {
   my $self = shift;
-  return if $self->{BASIC};
-  my $sql = qq { select n.name, s.name
-                     from phedex_node n
-                     join site s on s.id = n.site };
-  my $sth = $self->{DBHANDLE}->prepare($sql);
-  $sth->execute();
+  {
+    open(F, $self->{SITE_NAMES});
+    local $/ = undef;
+    $json_names = <F>;
+  }
+  my $names = decode_json($json_names);
   my %map;
-  while (my ($node, $site) = $sth->fetchrow()) {
-      $map{$node} = $site;
+  foreach (@{$names->{'result'}}) {
+    if ( ${$_}[0] eq 'phedex' ) {
+        $map{${$_}[2]} = ${$_}[1];
+    }
   }
   foreach ( @{$ExtraNodes} ) {
     ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%% unless $map{$_};
   }
-  PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemap", "Results of PHEDEX::Web::LocalAuth::getPhedexNodeToSiteMap");
+  PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemapnew", "Results of PHEDEX::Web::LocalAuth::getPhedexNodeToSiteMap");
   return %map;
 }
 
