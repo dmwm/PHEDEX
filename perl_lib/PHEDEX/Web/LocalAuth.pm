@@ -26,7 +26,7 @@ sub new {
   $self->{DBUSER} = undef;
   $self->{DBPASS} = undef;
   $self->{DBHANDLE} = undef;
-  $self->{FILES_PATH};
+  $self->{FILES_PATH} = undef;
   while( my ($opt,$val) = each %$options) {
     warn "No such option: $opt" if ! grep (/^$opt$/,@settable);
     $self->{$opt} = $val;
@@ -89,7 +89,7 @@ sub init {
     # file each required fiel as configuration parameter, we add attribute
     # for each file with a full path based on the file name:
     my $attr;
-    foreach ( @required_files)) {
+    foreach ( @required_files) {
       $attr = s/-/_/;
       $attr = s/.json$//;
       $self->{$attr} = $self->{FILES_PATH} . $_;
@@ -316,12 +316,13 @@ sub getUsersWithRoleForSite {
 
 sub getPhedexNodeToSiteMap {
   my $self = shift;
+  my ($json_names, $names);
   {
     open(F, $self->{SITE_NAMES});
     local $/ = undef;
     $json_names = <F>;
   }
-  my $names = decode_json($json_names);
+  $names = decode_json($json_names);
   my %map;
   foreach (@{$names->{'result'}}) {
     if ( ${$_}[0] eq 'phedex' ) {
@@ -331,7 +332,8 @@ sub getPhedexNodeToSiteMap {
   foreach ( @{$ExtraNodes} ) {
     ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%% unless $map{$_};
   }
-  PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemapnew", "Results of PHEDEX::Web::LocalAuth::getPhedexNodeToSiteMap");
+  PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemapnew", 
+    "Results of PHEDEX::Web::LocalAuth::getPhedexNodeToSiteMap");
   return %map;
 }
 
