@@ -379,6 +379,8 @@ sub initSecurity
     my @nodes = PHEDEX::Web::Util::fetch_nodes($self);
     $self->{SECMOD}->setTestNodes(\@nodes);
   }
+  PHEDEX::Web::Util::dump_debug_data_to_file($self,
+    "core", "Dumping self in Core::initSecurity");
   my %auth_nodes = PHEDEX::Web::Util::fetch_nodes($self,
     web_user_auth => 'Data Manager',
     with_ids => 1);
