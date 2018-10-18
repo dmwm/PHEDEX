@@ -376,12 +376,15 @@ sub initSecurity
 
 # If we are testing, make sure the FrontendAuth module knows about it
   if ( $self->{CONFIG}{TESTING_MODE} ) {
-    my @nodes = PHEDEX::Web::Util::fetch_nodes($self, web_user_auth => 'Data Manager', with_ids => 1);
+    my @nodes = PHEDEX::Web::Util::fetch_nodes($self);
     $self->{SECMOD}->setTestNodes(\@nodes);
-    PHEDEX::Web::Util::dump_debug_data_to_file(\@nodes, "nodes", "fetch_nodes result in Core::initSecurity");
-    die "TESTING_MODE:  STOP in Core::initSecurity ";
   }
-
+  my %auth_nodes = PHEDEX::Web::Util::fetch_nodes($self,
+    web_user_auth => 'Data Manager',
+    with_ids => 1);
+  PHEDEX::Web::Util::dump_debug_data_to_file(\%auth_nodes,
+    "nodes", "fetch_nodes result for Data Manager role in Core::initSecurity");
+  die "NRDEBUG STOP in Core::initSecurity ";
   return 1;
 }
 
