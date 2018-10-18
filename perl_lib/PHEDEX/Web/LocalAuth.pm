@@ -185,6 +185,32 @@ sub getRoles {
 sub getSitesForUserRole
 {
   my ($self,$role) = @_;
+  my $login = $self->getUserLogin();
+  my %sitemap = $self->getPhedexNodeToSiteMap();
+  # Site-responsibilities format:
+  # {"result": [ [ login, site, role], ...  ]}
+  {
+    open(F, $self->{SITE_RESPONSIBILITIES});
+    local $/ = undef;
+    my $json_siteroles = <F>;
+  }
+  my $siteroles = decode_json($json_siteroles);
+  my @nodes;
+  foreach (@{$siteroles->{'result'}}) {
+    if ($($_)[0] eq $login && $($_)[2] eq $role ) {
+      foreach my $node (keys %sitemap) {
+        if ($sitemap{$node} eq $($_)[1]) {
+          push $node, @nodes;
+        }
+      }
+    }
+  }
+  return \@nodes;
+}
+
+sub getSitesForUserRoleOld
+{
+  my ($self,$role) = @_;
   my ($roles,%sites,@sites,$site,$sql,$sth);
   return if $self->{BASIC};
   $roles = $self->getRoles();
