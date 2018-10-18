@@ -571,8 +571,6 @@ sub fetch_nodes
     my @auth_nodes;
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
         my $roles = $$self{SECMOD}->getRoles();
-        PHEDEX::Web::Util::dump_debug_data_to_file($roles,
-          "roles", "Roles in Web::Util::fetch_nodes");
         my @to_check = map { lc $_ } split /\|\|/, $args{web_user_auth};
         my $roles_ok = 0;
         foreach my $role (@to_check) {
@@ -590,7 +588,7 @@ sub fetch_nodes
                               grep($_ eq 'phedex', @{$$roles{'pada admin'}}));
 
         return unless ($roles && ($roles_ok || $global_admin));
-
+        die "STOP for auth nodes in fetch_nodes";
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
@@ -606,9 +604,6 @@ sub fetch_nodes
             }
 #           If not a global admin and no authorised sites, quit
 	    @auth_nodes = keys %auth_sites;
-        PHEDEX::Web::Util::dump_debug_data_to_file(\@auth_nodes,
-          "auth_nodes", "Auth nodes in Web::Util::fetch_nodes");
-        die "STOP in fetch_nodes";
             return unless @auth_nodes;
         }
     }
