@@ -15,7 +15,8 @@ sub new {
   my $self = {};
   bless ($self, $class);
 
-  my @settable = qw(DBNAME DBUSER DBPASS HEADERS_IN);
+  my @settable = qw(LOCAL_PATH DBNAME DBUSER DBPASS HEADERS_IN);
+  $self->{LOCAL_PATH} = undef;
   $self->{DBNAME} = undef;
   $self->{DBUSER} = undef;
   $self->{DBPASS} = undef;
@@ -69,7 +70,16 @@ sub init {
     die  "Could not connect to SiteDB" if $@;
     $self->{BASIC} = 0;
   }
-
+  if ( $self->{LOCAL_PATH} ) {
+    # Check that all required local files are readable:
+    my @required_files = qw(
+                             site-names.json
+                             site-responsibilities.json
+                           );
+    foreach ( map (($self->{LOCAL_PATH} . $_ ), @required_files)) {
+      -r $_  or die "Could not read file $_";
+    }
+  }
   $self->{ROLES}=$self->getRoles();
   $self->{USERNAME}=$self->{HEADER}{'cms-authn-login'};
   if ( !$self->{BASIC} ) {
