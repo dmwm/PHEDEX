@@ -87,12 +87,12 @@ sub init {
     }
     # To minimize modification for the API changes, instead of passing every
     # file each required fiel as configuration parameter, we add attribute
-    # for each file with a full path based on the file name:
-    my $attr;
+    # for each file with a full path based on the file name (e.g. SITE_NAMES):
     foreach ( @required_files) {
-      $attr = s/-/_/;
-      $attr = s/.json$//;
-      $self->{$attr} = $self->{FILES_PATH} . $_;
+      my $file = $self->{FILES_PATH} . $_;
+      s/-/_/;
+      s/\.json$//;
+      $self->{ uc $_} = $file;
     }
   } else {
     die "FILES_PATH undefined. Make sure that secmod-files-path is configured."
@@ -198,7 +198,6 @@ sub getSitesForUserRole
     $json_siteroles = <F>;
   }
   $siteroles = decode_json($json_siteroles);
-  @nodes;
   foreach $entry (@{$siteroles->{'result'}}) {
     if (${$entry}[0] eq $login && ${$entry}[2] eq $role ) {
       foreach my $node (keys %sitemap) {
