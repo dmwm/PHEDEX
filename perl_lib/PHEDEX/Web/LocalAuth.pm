@@ -81,6 +81,7 @@ sub init {
     my @required_files = qw(
                              site-names.json
                              site-responsibilities.json
+                             people.json
                            );
     foreach ( map (($self->{FILES_PATH} . $_ ), @required_files)) {
       -r $_  or die "Could not read file $_";
@@ -99,11 +100,11 @@ sub init {
   }
   $self->{ROLES}=$self->getRoles();
   $self->{USERNAME}=$self->{HEADER}{'cms-authn-login'};
-  if ( !$self->{BASIC} ) {
+  #if ( !$self->{BASIC} ) {
     $self->{USERID} = $self->getIDfromDN($self->getDN());
     $self->getUserInfoFromID($self->{USERID});
-  }
-  PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod", 
+  #}
+  PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod",
     "Dump secmod from  LocalAuth::init");
   return 1;
 }
@@ -208,35 +209,6 @@ sub getSitesForUserRole
     }
   }
   return \@nodes;
-}
-
-sub getSitesForUserRoleOld
-{
-  my ($self,$role) = @_;
-  my ($roles,%sites,@sites,$site,$sql,$sth);
-  return if $self->{BASIC};
-  $roles = $self->getRoles();
-  $sql = qq{ select pn.name
-               from contact c
-               join site_responsibility sr on sr.contact = c.id
-               join role r on r.id = sr.role
-               join site s on s.id = sr.site
-               join phedex_node pn on pn.site = s.id
-             where c.id = ? };
-  if ( $role ) {
-    $sql .= qq { and lower(r.title) = ? };
-  }
-  $sth = $self->{DBHANDLE}->prepare($sql);
-  if ( $role ) {
-    $sth->execute($self->{USERID},lc $role);
-  } else {
-    $sth->execute($self->{USERID});
-  }
-  while ($site = $sth->fetchrow_arrayref()) {
-    $sites{$site->[0]}++;
-  }
-  @sites = keys %sites;
-  return \@sites;
 }
 
 # Replacement for getSitesFromFrontendRoles:
@@ -371,7 +343,7 @@ sub getIDfromDN {
   my $self = shift;
   my $dn = shift;
 
-  return if $self->{BASIC};
+  #return if $self->{BASIC};
   if ( $dn && $dn =~ m%(Data|Site)_T(0|1)$% && $UID ) {
     return $UID;
   }
@@ -380,6 +352,8 @@ sub getIDfromDN {
 
   my $sth = $self->{DBHANDLE}->prepare("SELECT id FROM contact WHERE dn = ?");
   $sth->execute($dn);
+  PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod",
+    "Dump secmod from  LocalAuth::init");
   if(my $row = $sth->fetchrow_arrayref()) {
     return $row->[0];
   }
@@ -393,7 +367,7 @@ sub getUserInfoFromID {
   my $self = shift;
   my $id = shift;
 
-  return if $self->{BASIC};
+  #return if $self->{BASIC};
   return 0 if ! defined $id;
   my $sth = $self->{DBHANDLE}->prepare("SELECT surname,forename,email FROM contact WHERE id = ?");
   $sth->execute($id);
