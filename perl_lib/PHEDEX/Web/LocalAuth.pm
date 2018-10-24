@@ -101,11 +101,13 @@ sub init {
   $self->{ROLES}=$self->getRoles();
   $self->{USERNAME}=$self->{HEADER}{'cms-authn-login'};
   #if ( !$self->{BASIC} ) {
-    $self->{USERID} = $self->getIDfromDN($self->getDN());
-    $self->getUserInfoFromID($self->{USERID});
+  #  $self->{USERID} = $self->getIDfromDN($self->getDN());
+  #  $self->getUserInfoFromID($self->{USERID});
   #}
+  $self->getUserInfoFromDN($self->getDN());
   PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod",
     "Dump secmod from  LocalAuth::init");
+  die "NRDEBUG STOP in secmod init after getUserInfoFromDN call and dump of secmod";
   return 1;
 }
 
@@ -376,6 +378,32 @@ sub getUserInfoFromID {
     $self->{USERFORENAME} = $row->[1];
     $self->{USEREMAIL} = $row->[2];
     return 1;
+  }
+  return 0;
+}
+
+# retrieves additional user info fields like forename, surname, email
+# from a local dump of SiteDB or CRIC people API) using DN matching.
+# @param: user DN
+# @return: 1 for success, 0 for failure
+sub getUserInfoFromDN {
+  my $self = shift;
+  my $dn = shift;
+  return 0 if ! defined $dn;
+  # 
+  my ($json_people, $people);
+  {
+    open(F, $self->{PEOPLE});
+    local $/ = undef;
+    $json_people = <F>;
+  }
+  $people = decode_json($json_people);
+  PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
+    "The contents of people.json converted into perl structure");
+  #$self->{USERSURNAME} = $row->[0];
+  #$self->{USERFORENAME} = $row->[1];
+  #$self->{USEREMAIL} = $row->[2];
+  return 1;
   }
   return 0;
 }
