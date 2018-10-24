@@ -404,8 +404,6 @@ sub getUserInfoFromDN {
   #$self->{USERFORENAME} = $row->[1];
   #$self->{USEREMAIL} = $row->[2];
   return 1;
-  }
-  return 0;
 }
 
 sub reqAuthnCert {
