@@ -398,12 +398,20 @@ sub getUserInfoFromDN {
     $json_people = <F>;
   }
   $people = decode_json($json_people);
-  PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
-    "The contents of people.json converted into perl structure");
-  #$self->{USERSURNAME} = $row->[0];
-  #$self->{USERFORENAME} = $row->[1];
-  #$self->{USEREMAIL} = $row->[2];
-  return 1;
+  #PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
+  #  "The contents of people.json converted into perl structure");
+  foreach (@{$people->{'result'}}) {
+    if ( ${$_}[4] eq $dn ) {
+      $self->{USEREMAIL} = ${$_}[1];
+      $self->{USERSURNAME} = ${$_}[2];
+      $self->{USERFORENAME} = ${$_}[3];
+    }
+  }
+  if (defined $self->{USEREMAIL}){
+    return 1;
+    } else {
+    return 0;
+  }
 }
 
 sub reqAuthnCert {
