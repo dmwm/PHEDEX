@@ -584,16 +584,18 @@ sub fetch_identity
     if (! $secmodUser ) {
 	if (! $$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ) { return; }
 
-	$$id{SECMOD_ID} = $$self{SECMOD}->getID();
+	#$$id{SECMOD_ID} = $$self{SECMOD}->getID();
 	$$id{NAME} = $$self{SECMOD}->getUsername();
 	$$id{EMAIL} = $$self{SECMOD}->getEmail();
 
 	if ($$self{SECMOD}->isCertAuthenticated()) {
-	    @to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);
+        #@to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);
+        @to_sync = qw(NAME EMAIL DN CERTIFICATE);
 	    $$id{DN} = $$self{SECMOD}->getDN();
 	    $$id{CERTIFICATE} = $$self{SECMOD}->getCert();
 	} elsif ($$self{SECMOD}->isPasswdAuthenticated()) {
-	    @to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
+        #@to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
+        @to_sync = qw(NAME EMAIL USERNAME);
 	    $$id{USERNAME} = $$self{SECMOD}->getUsername();
 	}
     } else {
@@ -602,7 +604,8 @@ sub fetch_identity
 	$$id{EMAIL} = $$secmodUser{EMAIL};
 	$$id{DN} = $$secmodUser{DN};
 	$$id{USERNAME} = $$secmodUser{USERNAME};
-	@to_sync = qw(SECMOD_ID NAME EMAIL DN USERNAME);
+    #@to_sync = qw(SECMOD_ID NAME EMAIL DN USERNAME);
+    @to_sync = qw(NAME EMAIL DN USERNAME);
     }
     my $now = time();
 
@@ -610,9 +613,11 @@ sub fetch_identity
     my $q = &dbexec($$self{DBH},
 		    qq{ select id, secmod_id, name, email, dn, certificate, username
 			    from t_adm_identity where secmod_id = :secmod_id or dn = :dn
+			    or username = :username
 			    order by time_update desc },
 		    ':secmod_id' => $$id{SECMOD_ID},
-		    ':dn' => ($$id{DN} || 'dummy')
+		    ':dn' => ($$id{DN} || 'dummy'),
+		    ':username' => ($$id{USERNAME} || 'dummy') ),
 		    );
 
     my $logged_id = $q->fetchrow_hashref();
