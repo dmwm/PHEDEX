@@ -2300,7 +2300,7 @@ sub generate
       $$self{SECMOD}->init($self);
   #    alarm 0;
   #};
-  POSIX::sigaction(&POSIX::SIGALRM, $oldaction); # restore original
+  #POSIX::sigaction(&POSIX::SIGALRM, $oldaction); # restore original
   #if ( $@ and $@ =~ /my private alarm/ ) {
   #  my $feedbackurl =
   #    "mailto:$$self{CONFIG}{FEEDBACK_MAIL}?subject="
