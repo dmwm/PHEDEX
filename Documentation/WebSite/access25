@@ -611,13 +611,13 @@ sub fetch_identity
 
     # Look up a logged identity by either the SecurityModule ID or the DN
     my $q = &dbexec($$self{DBH},
-		    qq{ select id, secmod_id, name, email, dn, certificate, username
-			    from t_adm_identity where secmod_id = :secmod_id or dn = :dn
-			    or username = :username
-			    order by time_update desc },
-		    ':secmod_id' => $$id{SECMOD_ID},
-		    ':dn' => ($$id{DN} || 'dummy'),
-		    ':username' => ($$id{USERNAME} || 'dummy') ),
+            qq{ select id, secmod_id, name, email, dn, certificate, username
+                from t_adm_identity where secmod_id = :secmod_id or dn = :dn
+                or username = :username
+                order by time_update desc },
+                ':secmod_id' => $$id{SECMOD_ID},
+                ':username' => ($$id{USERNAME} || 'dummy'),
+                ':dn' => ($$id{DN} || 'dummy')
 		    );
 
     my $logged_id = $q->fetchrow_hashref();
