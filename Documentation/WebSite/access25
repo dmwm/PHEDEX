@@ -10,7 +10,8 @@ our $TESTING = 0;
 our $TESTING_MAIL = undef;
 our $DBS_LOOKUP = undef;
 
-use PHEDEX::Web::FrontendAuth;
+#use PHEDEX::Web::FrontendAuth;
+use PHEDEX::Web::LocalAuth;
 use PHEDEX::Core::SQL;
 use Data::Dumper;
 use POSIX qw(SIGALRM);
@@ -9231,26 +9232,29 @@ sub runme
   # Initialize the SecurityModule
   unless ($cgipage =~ /^XML/) {
       my %args;
-      if ($$config{SECMOD_CONFIG}) {
-	  # If a config file is given, we use that
-	  $args{CONFIG} = $$config{SECMOD_CONFIG};
+      if ($$config{SECMOD_FILES_PATH}) {
+        # If a local path is configured, use local files for initializing the security model:
+        $args{FILES_PATH} = $$config{SECMOD_FILES_PATH};
+      #if ($$config{SECMOD_CONFIG}) {
+      # If a config file is given, we use that
+      #$args{CONFIG} = $$config{SECMOD_CONFIG};
       } else {
-	  # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
-	  my $dbparam;
-	  eval {
+	    # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
+	    my $dbparam;
+	    eval {
 	      $dbparam = &parseDatabaseInfo($$config{DBPARAM}, 'SecurityModule');
-	  };
-	  if ($@ || !$dbparam) {
+	    };
+	    if ($@ || !$dbparam) {
 	      die "no way to initialize SecurityModule:  either configure secmod-config ",
 	      "or provide SecurityModule section in the DBParam file",
 	      ($@ ? ": parse error: $@" : ""), "\n";
-	  }
-	  $args{DBNAME} = $$dbparam{DBH_DBNAME};
-	  $args{DBUSER} = $$dbparam{DBH_DBUSER};
-	  $args{DBPASS} = $$dbparam{DBH_DBPASS};
-          $args{HEADERS_IN} = $r->headers_in();
+        }
+        $args{DBNAME} = $$dbparam{DBH_DBNAME};
+        $args{DBUSER} = $$dbparam{DBH_DBUSER};
+        $args{DBPASS} = $$dbparam{DBH_DBPASS};
+        $args{HEADERS_IN} = $r->headers_in();
       }
-      $page->{SECMOD} = new PHEDEX::Web::FrontendAuth({%args});
+      $page->{SECMOD} = new PHEDEX::Web::LocalAuth({%args});
   }
 
   # Generate the page
