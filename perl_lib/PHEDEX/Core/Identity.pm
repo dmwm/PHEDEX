@@ -141,7 +141,7 @@ sub fetchAndSyncIdentity
 			                         or dn = :dn
 				                 or username = :username
 			    order by time_update desc },
-		    ':secmod_id' => ($$id{SECMOD_ID} || NULL ),
+		    ':secmod_id' => ($$id{SECMOD_ID} || 'NULL' ),
 		    ':dn' => ($$id{DN} || 'dummy'),
 		    ':username' => ($$id{USERNAME} || 'dummy') );
 
