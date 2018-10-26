@@ -2328,6 +2328,9 @@ sub generate
   # Check if the client's identity was verified
   if ($$self{SECMOD}->isAuthenticated())
   {
+    &PHEDEX::Web::Util::dump_debug_data_to_file($self, "web_secmod",
+    "Dump secmod from access25::generate");
+    die "NRDEBUG dump secmod and STOP in generate ";
     my $name_display = '';
     if ($$self{SECMOD}->isKnownUser()) {
         $$self{USER_NAME} = $$self{SECMOD}->getUsername();
