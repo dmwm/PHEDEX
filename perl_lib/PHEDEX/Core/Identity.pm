@@ -117,9 +117,11 @@ sub fetchAndSyncIdentity
     }
     my @to_sync;
     if ($h{AUTH_METHOD} eq 'CERTIFICATE') {
-	@to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);	
+    #@to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);
+    @to_sync = qw(NAME EMAIL DN CERTIFICATE);
     } elsif ($h{AUTH_METHOD} eq 'PASSWORD') {
-	@to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
+    #@to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
+    @to_sync = qw(NAME EMAIL USERNAME);
     } else { 
 	die "fetchAndSyncIdentity AUTH_METHOD $h{AUTH_METHOD} is not supported";
     }
@@ -141,7 +143,7 @@ sub fetchAndSyncIdentity
 			                         or dn = :dn
 				                 or username = :username
 			    order by time_update desc },
-		    ':secmod_id' => ($$id{SECMOD_ID} || 'NULL' ),
+		    ':secmod_id' => ($$id{SECMOD_ID}),
 		    ':dn' => ($$id{DN} || 'dummy'),
 		    ':username' => ($$id{USERNAME} || 'dummy') );
 
