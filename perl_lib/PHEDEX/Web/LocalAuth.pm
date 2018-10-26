@@ -399,8 +399,10 @@ sub getUserInfoFromDN {
     $json_people = <F>;
   }
   $people = decode_json($json_people);
-  #PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
-  #  "The contents of people.json converted into perl structure");
+  PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
+    "The contents of people.json converted into perl structure");
+  PHEDEX::Web::Util::dump_debug_data_to_file($self, "web_site_self", 
+    "Dumping self from  website, hopefully");  
   foreach (@{$people->{'result'}}) {
     if ( ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
