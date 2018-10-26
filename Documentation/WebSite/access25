@@ -9168,8 +9168,8 @@ sub runme
   $DBS_LOOKUP = $$config{DBS_LOOKUP} || undef;
 
   # Interpret the trailing path suffix: /DB/PAGE?QUERY
-  my $path = path_info() || "/prod";
-  my ($db, $cgipage) = ("prod", "Info::Main");
+  my $path = path_info() || "/test";
+  my ($db, $cgipage) = ("test", "Info::Main");
   $db = $1 if ($path =~ m!\G/([^/]+)!g);
   my $newDB;
   if ( $db  && not exists $config->{INSTANCES}{$db}) {
