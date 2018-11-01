@@ -751,10 +751,10 @@ sub error_document
 # for debugging purpose only 
 # will dump the passed by reference data structure with timestamp and comment 
 # into a file in a local /tmp/ directory
-sub dump_debug_data_to_file:
+sub dump_debug_data_to_file
 { 
     my ($data, $filename, $comment) = @_;
-    open( my $fh, '>>', '/tmp/' . $filename . ".phedex_debug_dump");
+    open( my $fh, '>>', '/tmp/phedex_debug_dump/' . $filename );
     print $fh " ========= \n Time now: \n" . localtime time();
     print $fh "\n ========= " . $comment ." \n";
     print $fh Dumper($data);
