@@ -9243,24 +9243,9 @@ sub runme
       if ($$config{SECMOD_FILES_PATH}) {
         # If a local path is configured, use local files for initializing the security model:
         $args{FILES_PATH} = $$config{SECMOD_FILES_PATH};
-      #if ($$config{SECMOD_CONFIG}) {
-      # If a config file is given, we use that
-      #$args{CONFIG} = $$config{SECMOD_CONFIG};
-      } else {
-	    # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
-	    my $dbparam;
-	    eval {
-	      $dbparam = &parseDatabaseInfo($$config{DBPARAM}, 'SecurityModule');
-	    };
-	    if ($@ || !$dbparam) {
-	      die "no way to initialize SecurityModule:  either configure secmod-config ",
-	      "or provide SecurityModule section in the DBParam file",
-	      ($@ ? ": parse error: $@" : ""), "\n";
-        }
-        $args{DBNAME} = $$dbparam{DBH_DBNAME};
-        $args{DBUSER} = $$dbparam{DBH_DBUSER};
-        $args{DBPASS} = $$dbparam{DBH_DBPASS};
         $args{HEADERS_IN} = $r->headers_in();
+      } else {
+        die "webpage has no way to initialize SecurityModule: configure secmod-files-path.";
       }
       $page->{SECMOD} = new PHEDEX::Web::LocalAuth({%args});
   }
