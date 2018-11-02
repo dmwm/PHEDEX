@@ -171,6 +171,7 @@ sub getRoles {
 }
 
 sub getSitesForUserRole
+# Comparison for roles is case insensitive to work against headers style roles
 {
   my ($self,$role) = @_;
   my $login = $self->getUserLogin();
@@ -185,7 +186,7 @@ sub getSitesForUserRole
   }
   $siteroles = decode_json($json_siteroles);
   foreach $entry (@{$siteroles->{'result'}}) {
-    if (${$entry}[0] eq $login && ${$entry}[2] eq $role ) {
+    if (${$entry}[0] eq $login && lc ${$entry}[2] eq lc $role ) {
       foreach my $node (keys %sitemap) {
         if ($sitemap{$node} eq ${$entry}[1]) {
           push $node, @nodes;
