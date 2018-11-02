@@ -60,21 +60,8 @@ sub init {
     } else {
       $self->{AUTHNSTATE} = 'none';
     }
-  }
+  } 
 
-  $self->{BASIC} = 1; # Say I don't have access to SiteDB itself!
-  if ( $self->{DBUSER} ) {
-    my $connstr = "DBI:Oracle:" . $self->{DBNAME};
-
-    eval {
-      $self->{DBHANDLE} = DBI->connect($connstr, $self->{DBUSER}, $self->{DBPASS},
-                                       {'AutoCommit' => 0,
-                                        'RaiseError' => 1,
-                                        'PrintError' => 0});
-    };
-    die  "Could not connect to SiteDB" if $@;
-    $self->{BASIC} = 0;
-  }
   if ( $self->{FILES_PATH} ) {
     # Assuming that all files live in the same location, we define
     # all required files here and check that they exist and are readable:
@@ -87,8 +74,8 @@ sub init {
       -r $_  or die "Could not read file $_";
     }
     # To minimize modification for the API changes, instead of passing every
-    # file each required fiel as configuration parameter, we add attribute
-    # for each file with a full path based on the file name (e.g. SITE_NAMES):
+    # file as configuration parameter, we add attribute for each file with a
+    # full path based on the file name (e.g. SITE_NAMES for site-names.json):
     foreach ( @required_files) {
       my $file = $self->{FILES_PATH} . $_;
       s/-/_/;
@@ -100,13 +87,8 @@ sub init {
   }
   $self->{ROLES}=$self->getRoles();
   $self->{USERNAME}=$self->{HEADER}{'cms-authn-login'};
-  #if ( !$self->{BASIC} ) {
-  #  $self->{USERID} = $self->getIDfromDN($self->getDN());
-  #  $self->getUserInfoFromID($self->{USERID});
-  #}
-  # We do not set USERID here, as it is not exposed in SiteDB APIs, 
-  # get all info based on DN instead. 
   $self->{DN}=$self->getUserInfoFromDN($self->getDN());
+  # NRDEBUG: uncomment next two lines to dump secmod into a local file
   #PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod",
   #  "Dump secmod from  LocalAuth::init");
   return 1;
@@ -215,24 +197,23 @@ sub getSitesForUserRole
 }
 
 # Replacement for getSitesFromFrontendRoles:
-# get sites from local dump of SiteDB site-names and site-responsibilities APIs
+# get sites the authenticated user can act on
+# from a local dump of SiteDB site-names and site-responsibilities APIs
 sub getSitesFromLocalRoles
 {
   my $self = shift;
   my $login = $self->getUserLogin();
-  # Standard cmsweb location for PhEDEx files:
-  my $input_dir = "/data/srv/state/phedex/etc/";
   my ($json_names, $names, $json_siteroles, $siteroles, @sites);
   # Site names map from a local file:
   {
-    open(F, $input_dir . "site-names.json");
+    open(F, $self->{SITE_NAMES});
     local $/ = undef;
     $json_names = <F>;
   }
   $names = decode_json($json_names);
   # Site roles map from a local file:
   {
-    open(F, $input_dir . "site-responsibilities.json");
+    open(F, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
     $json_siteroles = <F>;
   }
@@ -249,7 +230,10 @@ sub getSitesFromLocalRoles
   return \@sites;
 }
 
-sub getSitesFromFrontendRoles
+# The frontend site roles are being replaced by site-responsibilities dump,
+# so this routine gets obsoleted:
+#sub getSitesFromFrontendRoles
+sub getSitesFromFrontendRolesObsolete
 {
   my $self = shift;
   my ($roles,$role,%sites,@sites,$site,$sql,$sth);
@@ -288,9 +272,11 @@ sub urldecode {
   return $str;
 }
 
+# This is used with Data Manager and Site Admin roles for email notifications
+# Obsoleted implementation dependent on siteDB direct access 
 # @params:  a role and a site
 # @return:  list of usernames
-sub getUsersWithRoleForSite {
+sub getUsersWithRoleForSiteObsolete {
   my ($self, $role, $site) = @_;
   return if $self->{BASIC};
   my $sql = qq{ select c.id, c.surname, c.forename, c.email,
@@ -305,6 +291,27 @@ sub getUsersWithRoleForSite {
   my @users;
   while (my $user = $sth->fetchrow_hashref()) {
     push @users, $user;
+  }
+  return @users;
+}
+# Map users/roles/sites based on local dumps of SiteDB or CRIC APIs
+# @params:  a role and a site
+# @return:  list of usernames
+# This is usually used with Data Manager and Site Admin roles for email notifications
+sub getUsersWithRoleForSite {
+  my ($self, $role, $site) = @_;
+  my @users;
+  {
+    open(F, $self->{SITE_RESPONSIBILITIES});
+    local $/ = undef;
+    $json_siteroles = <F>;
+  }
+  $siteroles = decode_json($json_siteroles);
+  foreach my $entry (@{$siteroles->{'result'}}) {
+    # match site and facility names
+    if ( $self->{$sitemap}->{$site} eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) { 
+      push @users, ${$entry}[0];
+    }
   }
   return @users;
 }
@@ -339,10 +346,11 @@ sub getPhedexNodeToSiteMap {
     "Results of PHEDEX::Web::LocalAuth::getPhedexNodeToSiteMap");
   return %map;
 }
-
+# NR: hope this can be obsoleted and we can live without replacement,
+# as SiteDB ID is not exposed by any of its APIs. 
 # @param: user's DN
 # @return: user's ID
-sub getIDfromDN {
+sub getIDfromDNObsoleted {
   my $self = shift;
   my $dn = shift;
 
@@ -427,9 +435,32 @@ sub reqAuthnPasswd {
   die PHEDEX::Web::Util::http_error(401,"Password authentication required");
 }
 
-sub getUsersWithRoleForGroup {
+# Getting rid of all direct access to the SiteDB 
+sub getUsersWithRoleForGroupObsoleted {
   my ($self, $role, $group) = @_;
   return if $self->{BASIC};
+  my $sql = qq{ select c.id, c.surname, c.forename, c.email,
+		         c.username, c.dn, c.phone1, c.phone2
+		    from contact c
+		    join group_responsibility gr on gr.contact = c.id
+		    join role r on r.id = gr.role
+		    join user_group g on g.id = gr.user_group
+		   where r.title = ? and g.name = ? };
+  my $sth = $self->{DBHANDLE}->prepare($sql);
+  $sth->execute($role, $group);
+  my @users;
+  while (my $user = $sth->fetchrow_hashref()) {
+    push @users, $user;
+  }
+  return @users;
+}
+
+# NR FIXME:  allow this to break by not exiting for now.
+# Needs to be replaced by reading from tghe local dumps of SiteDB/CRIC APIs,
+# Will likely need a group-responsibilities API for this one. 
+sub getUsersWithRoleForGroup {
+  my ($self, $role, $group) = @_;
+  #return if $self->{BASIC};
   my $sql = qq{ select c.id, c.surname, c.forename, c.email,
 		         c.username, c.dn, c.phone1, c.phone2
 		    from contact c
