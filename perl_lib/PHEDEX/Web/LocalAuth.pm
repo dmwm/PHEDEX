@@ -300,7 +300,8 @@ sub getUsersWithRoleForSiteObsolete {
 # This is usually used with Data Manager and Site Admin roles for email notifications
 sub getUsersWithRoleForSite {
   my ($self, $role, $site) = @_;
-  my @users;
+  my ($json_siteroles, $siteroles, @users);
+  my %sitemap = $self->getPhedexNodeToSiteMap();
   {
     open(F, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
@@ -309,7 +310,7 @@ sub getUsersWithRoleForSite {
   $siteroles = decode_json($json_siteroles);
   foreach my $entry (@{$siteroles->{'result'}}) {
     # match site and facility names
-    if ( $self->{$sitemap}->{$site} eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) { 
+    if ( $sitemap{$site} eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) { 
       push @users, ${$entry}[0];
     }
   }
