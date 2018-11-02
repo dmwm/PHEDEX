@@ -401,10 +401,8 @@ sub getUserInfoFromDN {
   $people = decode_json($json_people);
   #PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
   #  "The contents of people.json converted into perl structure");
-  PHEDEX::Web::Util::dump_debug_data_to_file($self, "web_site_self", 
-    "Dumping self from  website, hopefully");  
   foreach (@{$people->{'result'}}) {
-    if not defined ${$_}[4] {
+    if ( ! defined ${$_}[4]) {
       PHEDEX::Web::Util::dump_debug_data_to_file(${$_}, "debug_getUserInfoFromDN",
        "Dumping current entry of people when undefined dn entry");
       die "STOP in getUserInfoFromDN where people is " . ${$_};
