@@ -597,7 +597,9 @@ sub fetch_nodes
             my %auth_sites;
             foreach my $role (@to_check) {
                 if (exists $$roles{$role}) {
-	            my $sites = $self->{SECMOD}->getSitesForUserRole($role);
+                    &dump_debug_data_to_file ($role, 'request_debug', 'checking role in fetch_nodes');
+                    my $sites = $self->{SECMOD}->getSitesForUserRole($role);
+                    &dump_debug_data_to_file ($sites, 'request_debug', 'sites for above role in fetch_nodes');
                     foreach my $site (@{$sites}) {
                         $auth_sites{$site}++;
                     }
