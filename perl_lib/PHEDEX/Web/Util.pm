@@ -607,8 +607,8 @@ sub fetch_nodes
             }
 #           If not a global admin and no authorised sites, quit
 	    @auth_nodes = keys %auth_sites;
-	    &dump_debug_data_to_file (\@auth_nodes, 'request_debug', 'resulting auth_nodes in fetch_nodes');
         die "NRDEBUG-1: die in fetch_nodes to see if we got that far";
+	    &dump_debug_data_to_file (\@auth_nodes, 'request_debug', 'resulting auth_nodes in fetch_nodes');
             return unless @auth_nodes;
         }
     }
