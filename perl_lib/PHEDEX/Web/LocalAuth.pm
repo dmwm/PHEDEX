@@ -106,7 +106,7 @@ sub init {
   #}
   # We do not set USERID here, as it is not exposed in SiteDB APIs, 
   # get all info based on DN instead. 
-  $self->getUserInfoFromDN($self->getDN());
+  $self->{DN}=$self->getUserInfoFromDN($self->getDN());
   #PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod",
   #  "Dump secmod from  LocalAuth::init");
   return 1;
