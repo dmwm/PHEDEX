@@ -390,6 +390,7 @@ sub getUserInfoFromID {
 sub getUserInfoFromDN {
   my $self = shift;
   my $dn = shift;
+  die "STOP in getUserInfoFromDN where dn is " . $dn; 
   return 0 if ! defined $dn;
   # 
   my ($json_people, $people);
