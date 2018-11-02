@@ -589,7 +589,6 @@ sub fetch_nodes
                               exists $$roles{'pada admin'} &&
                               grep($_ eq 'phedex', @{$$roles{'pada admin'}}));
         return unless ($roles && ($roles_ok || $global_admin));
-        die "NRDEBUG-1: die in fetch_nodes to see if we got that far";
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
@@ -605,6 +604,8 @@ sub fetch_nodes
             }
 #           If not a global admin and no authorised sites, quit
 	    @auth_nodes = keys %auth_sites;
+	    &dump_debug_data_to_file (\@auth_nodes, 'request_debug', 'resulting auth_nodes in fetch_nodes');
+        die "NRDEBUG-1: die in fetch_nodes to see if we got that far";
             return unless @auth_nodes;
         }
     }
