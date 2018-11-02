@@ -570,7 +570,6 @@ sub fetch_nodes
 
     my @auth_nodes;
     &dump_debug_data_to_file (\%args, 'request_debug', 'arguments passed to fetch_nodes');
-    die "NRDEBUG-0: die in fetch_nodes to see if we got that far.";
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
         my $roles = $$self{SECMOD}->getRoles();
         &dump_debug_data_to_file ($roles, 'request_debug', 'output of getRoles in fetch_nodes');
