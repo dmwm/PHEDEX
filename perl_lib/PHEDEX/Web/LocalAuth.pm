@@ -390,7 +390,6 @@ sub getUserInfoFromID {
 sub getUserInfoFromDN {
   my $self = shift;
   my $dn = shift;
-  die "STOP in getUserInfoFromDN where dn is " . $dn; 
   return 0 if ! defined $dn;
   # 
   my ($json_people, $people);
@@ -405,6 +404,11 @@ sub getUserInfoFromDN {
   PHEDEX::Web::Util::dump_debug_data_to_file($self, "web_site_self", 
     "Dumping self from  website, hopefully");  
   foreach (@{$people->{'result'}}) {
+    if not defined ${$_}[4] {
+      PHEDEX::Web::Util::dump_debug_data_to_file(${$_}, "debug_getUserInfoFromDN",
+       "Dumping current entry of people when undefined dn entry");
+      die "STOP in getUserInfoFromDN where people is " . ${$_};
+    }
     if ( ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
       $self->{USERSURNAME} = ${$_}[2];
