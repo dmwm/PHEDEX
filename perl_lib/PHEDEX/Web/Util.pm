@@ -588,8 +588,8 @@ sub fetch_nodes
         $global_admin = 1 if (grep($_ eq 'pada admin', @to_check) &&
                               exists $$roles{'pada admin'} &&
                               grep($_ eq 'phedex', @{$$roles{'pada admin'}}));
-        die "NRDEBUG-1: die in fetch_nodes to see if we got that far";
         return unless ($roles && ($roles_ok || $global_admin));
+        die "NRDEBUG-1: die in fetch_nodes to see if we got that far";
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
