@@ -571,6 +571,7 @@ sub fetch_nodes
     my @auth_nodes;
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
         my $roles = $$self{SECMOD}->getRoles();
+        &dump_debug_data_to_file ($roles, 'request_debug', 'output of getRoles in fetch_nodes');
         my @to_check = map { lc $_ } split /\|\|/, $args{web_user_auth};
         my $roles_ok = 0;
         foreach my $role (@to_check) {
@@ -578,7 +579,7 @@ sub fetch_nodes
                 $roles_ok = 1;
             }
         }
-
+        &dump_debug_data_to_file ($roles_ok, 'request_debug', 'value of roles_ok in fetch_nodes');
         my $global_admin = (exists $$roles{'admin'} &&
                             grep $_ eq 'phedex', @{$$roles{'admin'}}) || 0;
 
@@ -606,7 +607,7 @@ sub fetch_nodes
             return unless @auth_nodes;
         }
     }
-
+    die "NRDEBUG: die in fetch_nodes to see if we got that far.";
     my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
     my $q = &dbexec($$self{DBH}, $sql);
 
