@@ -592,6 +592,7 @@ sub fetch_nodes
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
+	    &dump_debug_data_to_file (\@to_check, 'request_debug', 'roles to_check in fetch_nodes');
         if (!$global_admin) {
             my %auth_sites;
             foreach my $role (@to_check) {
