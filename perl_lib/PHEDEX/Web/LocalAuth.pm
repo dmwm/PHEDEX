@@ -402,12 +402,7 @@ sub getUserInfoFromDN {
   #PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
   #  "The contents of people.json converted into perl structure");
   foreach (@{$people->{'result'}}) {
-    if ( ! defined ${$_}[4]) {
-      PHEDEX::Web::Util::dump_debug_data_to_file(${$_}, "debug_getUserInfoFromDN",
-       "Dumping current entry of people when undefined dn entry");
-      die "STOP in getUserInfoFromDN where people is " . ${$_};
-    }
-    if ( ${$_}[4] eq $dn ) {
+    if ( ${$_}[4] eq '$dn' ) {
       $self->{USEREMAIL} = ${$_}[1];
       $self->{USERSURNAME} = ${$_}[2];
       $self->{USERFORENAME} = ${$_}[3];
