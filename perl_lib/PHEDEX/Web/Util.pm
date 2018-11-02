@@ -569,6 +569,7 @@ sub fetch_nodes
     my ($self, %args) = @_;
 
     my @auth_nodes;
+    die "NRDEBUG-0: die in fetch_nodes to see if we got that far.";
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
         my $roles = $$self{SECMOD}->getRoles();
         &dump_debug_data_to_file ($roles, 'request_debug', 'output of getRoles in fetch_nodes');
@@ -587,7 +588,7 @@ sub fetch_nodes
         $global_admin = 1 if (grep($_ eq 'pada admin', @to_check) &&
                               exists $$roles{'pada admin'} &&
                               grep($_ eq 'phedex', @{$$roles{'pada admin'}}));
-
+        die "NRDEBUG-1: die in fetch_nodes to see if we got that far";
         return unless ($roles && ($roles_ok || $global_admin));
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
@@ -607,7 +608,7 @@ sub fetch_nodes
             return unless @auth_nodes;
         }
     }
-    die "NRDEBUG: die in fetch_nodes to see if we got that far.";
+    die "NRDEBUG-2: die in fetch_nodes to see if we got that far.";
     my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
     my $q = &dbexec($$self{DBH}, $sql);
 
