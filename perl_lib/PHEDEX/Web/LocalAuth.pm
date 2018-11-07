@@ -189,7 +189,7 @@ sub getSitesForUserRole
     if (${$entry}[0] eq $login && ((lc ${$entry}[2]) eq (lc $role ))) {
       foreach my $node (keys %sitemap) {
         if ($sitemap{$node} eq ${$entry}[1]) {
-          push $node, @nodes;
+          push @nodes, $node;
         }
       }
     }
@@ -238,10 +238,8 @@ sub getSitesFromFrontendRolesObsolete
 {
   my $self = shift;
   my ($roles,$role,%sites,@sites,$site,$sql,$sth);
-  PHEDEX::Web::Util::dump_debug_data_to_file($self, "roles", " Dump self in getSitesFromFrontendRoles");
   return if $self->{BASIC};
   $roles = $self->getRoles();
-  PHEDEX::Web::Util::dump_debug_data_to_file($roles, "roles", "As returned by LocalAuth::getRoles");
   $sql = qq{ select p.name phedex from phedex_node p
                join site s on p.site = s.id
                join site_cms_name_map cmap on cmap.site_id = s.id
@@ -344,8 +342,6 @@ sub getPhedexNodeToSiteMap {
   foreach ( @{$ExtraNodes} ) {
     ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%% unless $map{$_};
   }
-  PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemapnew", 
-    "Results of PHEDEX::Web::LocalAuth::getPhedexNodeToSiteMap");
   return %map;
 }
 # NR: hope this can be obsoleted and we can live without replacement,
@@ -365,8 +361,6 @@ sub getIDfromDNObsoleted {
 
   my $sth = $self->{DBHANDLE}->prepare("SELECT id FROM contact WHERE dn = ?");
   $sth->execute($dn);
-  PHEDEX::Web::Util::dump_debug_data_to_file($self, "secmod",
-    "Dump secmod from  LocalAuth::init");
   if(my $row = $sth->fetchrow_arrayref()) {
     return $row->[0];
   }
@@ -409,10 +403,8 @@ sub getUserInfoFromDN {
     $json_people = <F>;
   }
   $people = decode_json($json_people);
-  #PHEDEX::Web::Util::dump_debug_data_to_file($people, "people", 
-  #  "The contents of people.json converted into perl structure");
   foreach (@{$people->{'result'}}) {
-    if ( ${$_}[4] eq '$dn' ) {
+    if ( ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
       $self->{USERSURNAME} = ${$_}[2];
       $self->{USERFORENAME} = ${$_}[3];
