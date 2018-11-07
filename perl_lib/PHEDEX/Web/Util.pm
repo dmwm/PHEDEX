@@ -492,7 +492,6 @@ sub auth_nodes
     if (!$global_scope && @auth_sites) {
       #@auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
       @auth_nodes = @{ $self->{SECMOD}->getSitesFromLocalRoles() };
-      &dump_debug_data_to_file(\@auth_nodes,'nodes',' auth_nodes: as returned by getSitesFromFrontendRoles')
     }
 
     # Get a list of nodes from the DB. 'X' nodes are obsolete nodes
@@ -569,10 +568,8 @@ sub fetch_nodes
     my ($self, %args) = @_;
 
     my @auth_nodes;
-    &dump_debug_data_to_file (\%args, 'request_debug', 'arguments passed to fetch_nodes');
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
         my $roles = $$self{SECMOD}->getRoles();
-        &dump_debug_data_to_file ($roles, 'request_debug', 'output of getRoles in fetch_nodes');
         my @to_check = map { lc $_ } split /\|\|/, $args{web_user_auth};
         my $roles_ok = 0;
         foreach my $role (@to_check) {
@@ -580,7 +577,6 @@ sub fetch_nodes
                 $roles_ok = 1;
             }
         }
-        &dump_debug_data_to_file ($roles_ok, 'request_debug', 'value of roles_ok in fetch_nodes');
         my $global_admin = (exists $$roles{'admin'} &&
                             grep $_ eq 'phedex', @{$$roles{'admin'}}) || 0;
 
@@ -592,14 +588,11 @@ sub fetch_nodes
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
-	    &dump_debug_data_to_file (\@to_check, 'request_debug', 'roles to_check in fetch_nodes');
         if (!$global_admin) {
             my %auth_sites;
             foreach my $role (@to_check) {
                 if (exists $$roles{$role}) {
-                    &dump_debug_data_to_file ($role, 'request_debug', 'checking role in fetch_nodes');
                     my $sites = $self->{SECMOD}->getSitesForUserRole($role);
-                    &dump_debug_data_to_file ($sites, 'request_debug', 'sites for above role in fetch_nodes');
                     foreach my $site (@{$sites}) {
                         $auth_sites{$site}++;
                     }
@@ -607,12 +600,9 @@ sub fetch_nodes
             }
 #           If not a global admin and no authorised sites, quit
 	    @auth_nodes = keys %auth_sites;
-        die "NRDEBUG-1: die in fetch_nodes to see if we got that far";
-	    &dump_debug_data_to_file (\@auth_nodes, 'request_debug', 'resulting auth_nodes in fetch_nodes');
             return unless @auth_nodes;
         }
     }
-    die "NRDEBUG-2: die in fetch_nodes to see if we got that far.";
     my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
     my $q = &dbexec($$self{DBH}, $sql);
 
