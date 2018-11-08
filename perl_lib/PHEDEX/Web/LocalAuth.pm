@@ -303,27 +303,49 @@ sub getUsersWithRoleForSiteObsolete {
 sub getUsersWithRoleForSite {
   my ($self, $role, $site) = @_;
   my ($json_siteroles, $siteroles, @users, $fh);
-  my %sitemap = $self->getPhedexNodeToSiteMap();
-  &PHEDEX::Web::Util::dump_debug_data_to_file(\%sitemap, "sitemap_wp",
-    "Dump sitemap from getUsersWithRoleForSite called from web page ");
   {
     open($fh, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
     $json_siteroles = <$fh>;
-
   }
   $siteroles = decode_json($json_siteroles);
   close $fh;
-  foreach my $entry (@{$siteroles->{'result'}}) {
-    # match site and facility names
-    die "NRDEBUG stop on undefined map for site $site" if not defined $sitemap{$site};
-    die "NRDEBUG stop on undefined entry 1" . ${$entry}[1] if not defined ${$entry}[1];
-    die "NRDEBUG stop on undefined role $role" if not defined $role;
-    die "NRDEBUG stop on undefined entry 2" . ${$entry}[2] if not defined ${$entry}[2];
-    if ( $sitemap{$site} eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) {
-      push @users, ${$entry}[0];
-    }
+  # Get user info from people API dump:
+  my ($json_people, $people, $fh, $contact);
+  {
+    open($fh, $self->{PEOPLE});
+    local $/ = undef;
+    $json_people = <$fh>;
   }
+  $people = decode_json($json_people);
+  close $fh;
+  foreach my $entry (@{$siteroles->{'result'}}) {
+    if ( $site eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) {
+      # look up user, assuming login name is unique:
+      # and return user data in a format defined by a siteDB query:
+      # select c.id, c.surname, c.forename, c.email,c.username, c.dn
+      # retrieved with a fetchrow_hashref (see above the implementation 
+      # of getUsersWithRoleForSiteObsolete )
+      # The People API format is: 
+      # {"desc": {"columns": ["username", "email", "forename", 
+      # "surname", "dn", "phone1", "phone2", "im_handle"]}, "result": [
+      # ...
+      # ]} 
+      foreach (@{$people->{'result'}}) {
+        if (${$_}[0] eq ${$entry}[0]) {
+          $contact = {
+            'USERNAME'  => ${$_}[0],
+            'EMAIL' => ${$_}[1],
+            'FORENAME'  => ${$_}[2],
+            'SURNAME' => ${$_}[3],
+            'DN' => ${$_}[4],
+          }
+          push @users, $contact;
+          continue
+        }
+      }
+    }
+  } # end of site responsibilities loop  
   return @users;
 }
 
@@ -409,7 +431,6 @@ sub getUserInfoFromDN {
   my $self = shift;
   my $dn = shift;
   return 0 if ! defined $dn;
-  # 
   my ($json_people, $people, $fh);
   {
     open($fh, $self->{PEOPLE});
