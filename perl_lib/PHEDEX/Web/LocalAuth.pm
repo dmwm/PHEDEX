@@ -176,15 +176,16 @@ sub getSitesForUserRole
   my ($self,$role) = @_;
   my $login = $self->getUserLogin();
   my %sitemap = $self->getPhedexNodeToSiteMap();
-  my ($json_siteroles, $siteroles, @nodes, $entry);
+  my ($json_siteroles, $siteroles, @nodes, $entry, $fh);
   # Site-responsibilities format:
   # {"result": [ [ login, site, role], ...  ]}
   {
-    open(F, $self->{SITE_RESPONSIBILITIES});
+    open($fh, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
-    $json_siteroles = <F>;
+    $json_siteroles = <$fh>;
   }
   $siteroles = decode_json($json_siteroles);
+  close $fh;
   foreach $entry (@{$siteroles->{'result'}}) {
     if (${$entry}[0] eq $login && ((lc ${$entry}[2]) eq (lc $role ))) {
       foreach my $node (keys %sitemap) {
@@ -204,21 +205,23 @@ sub getSitesFromLocalRoles
 {
   my $self = shift;
   my $login = $self->getUserLogin();
-  my ($json_names, $names, $json_siteroles, $siteroles, @sites);
+  my ($json_names, $names, $json_siteroles, $siteroles, @sites, $fh);
   # Site names map from a local file:
   {
-    open(F, $self->{SITE_NAMES});
+    open($fh, $self->{SITE_NAMES});
     local $/ = undef;
-    $json_names = <F>;
+    $json_names = <$fh>;
   }
   $names = decode_json($json_names);
+  close $fh;
   # Site roles map from a local file:
   {
-    open(F, $self->{SITE_RESPONSIBILITIES});
+    open($fh, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
-    $json_siteroles = <F>;
+    $json_siteroles = <$fh>;
   }
   $siteroles = decode_json($json_siteroles);
+  close $fh;
   foreach my $role (@{$siteroles->{'result'}}) {
     if ( ${$role}[0] eq $login ) {
       foreach (@{$names->{'result'}}) {
@@ -299,17 +302,25 @@ sub getUsersWithRoleForSiteObsolete {
 # This is usually used with Data Manager and Site Admin roles for email notifications
 sub getUsersWithRoleForSite {
   my ($self, $role, $site) = @_;
-  my ($json_siteroles, $siteroles, @users);
+  my ($json_siteroles, $siteroles, @users, $fh);
   my %sitemap = $self->getPhedexNodeToSiteMap();
+  &PHEDEX::Web::Util::dump_debug_data_to_file(\%sitemap, "sitemap_wp",
+    "Dump sitemap from getUsersWithRoleForSite called from web page ");
   {
-    open(F, $self->{SITE_RESPONSIBILITIES});
+    open($fh, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
-    $json_siteroles = <F>;
+    $json_siteroles = <$fh>;
+
   }
   $siteroles = decode_json($json_siteroles);
+  close $fh;
   foreach my $entry (@{$siteroles->{'result'}}) {
     # match site and facility names
-    if ( $sitemap{$site} eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) { 
+    die "NRDEBUG stop on undefined map for site $site" if not defined $sitemap{$site};
+    die "NRDEBUG stop on undefined entry 1" . ${$entry}[1] if not defined ${$entry}[1];
+    die "NRDEBUG stop on undefined role $role" if not defined $role;
+    die "NRDEBUG stop on undefined entry 2" . ${$entry}[2] if not defined ${$entry}[2];
+    if ( $sitemap{$site} eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) {
       push @users, ${$entry}[0];
     }
   }
@@ -326,13 +337,14 @@ sub getUsersWithRoleForSite {
 
 sub getPhedexNodeToSiteMap {
   my $self = shift;
-  my ($json_names, $names);
+  my ($json_names, $names, $fh);
   {
-    open(F, $self->{SITE_NAMES});
+    open($fh, $self->{SITE_NAMES});
     local $/ = undef;
-    $json_names = <F>;
+    $json_names = <$fh>;
   }
   $names = decode_json($json_names);
+  close $fh;
   my %map;
   foreach (@{$names->{'result'}}) {
     if ( ${$_}[0] eq 'phedex' ) {
@@ -342,6 +354,8 @@ sub getPhedexNodeToSiteMap {
   foreach ( @{$ExtraNodes} ) {
     ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%% unless $map{$_};
   }
+  &PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemap",
+    "Dump sitemap from getPhedexNodeToSiteMap ");
   return %map;
 }
 # NR: hope this can be obsoleted and we can live without replacement,
@@ -396,13 +410,14 @@ sub getUserInfoFromDN {
   my $dn = shift;
   return 0 if ! defined $dn;
   # 
-  my ($json_people, $people);
+  my ($json_people, $people, $fh);
   {
-    open(F, $self->{PEOPLE});
+    open($fh, $self->{PEOPLE});
     local $/ = undef;
-    $json_people = <F>;
+    $json_people = <$fh>;
   }
   $people = decode_json($json_people);
+  close $fh;
   foreach (@{$people->{'result'}}) {
     if ( ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
