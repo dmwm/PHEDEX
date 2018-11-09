@@ -176,16 +176,15 @@ sub getSitesForUserRole
   my ($self,$role) = @_;
   my $login = $self->getUserLogin();
   my %sitemap = $self->getPhedexNodeToSiteMap();
-  my ($json_siteroles, $siteroles, @nodes, $entry, $fh);
+  my ($json_siteroles, $siteroles, @nodes, $entry);
   # Site-responsibilities format:
   # {"result": [ [ login, site, role], ...  ]}
   {
-    open($fh, $self->{SITE_RESPONSIBILITIES});
+    open(F, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
-    $json_siteroles = <$fh>;
+    $json_siteroles = <F>;
   }
   $siteroles = decode_json($json_siteroles);
-  close $fh;
   foreach $entry (@{$siteroles->{'result'}}) {
     if (${$entry}[0] eq $login && ((lc ${$entry}[2]) eq (lc $role ))) {
       foreach my $node (keys %sitemap) {
@@ -205,23 +204,21 @@ sub getSitesFromLocalRoles
 {
   my $self = shift;
   my $login = $self->getUserLogin();
-  my ($json_names, $names, $json_siteroles, $siteroles, @sites, $fh);
+  my ($json_names, $names, $json_siteroles, $siteroles, @sites);
   # Site names map from a local file:
   {
-    open($fh, $self->{SITE_NAMES});
+    open( F, $self->{SITE_NAMES});
     local $/ = undef;
-    $json_names = <$fh>;
+    $json_names = <F>;
   }
   $names = decode_json($json_names);
-  close $fh;
   # Site roles map from a local file:
   {
-    open($fh, $self->{SITE_RESPONSIBILITIES});
+    open(F, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
-    $json_siteroles = <$fh>;
+    $json_siteroles = <F>;
   }
   $siteroles = decode_json($json_siteroles);
-  close $fh;
   foreach my $role (@{$siteroles->{'result'}}) {
     if ( ${$role}[0] eq $login ) {
       foreach (@{$names->{'result'}}) {
@@ -302,23 +299,21 @@ sub getUsersWithRoleForSiteObsolete {
 # This is usually used with Data Manager and Site Admin roles for email notifications
 sub getUsersWithRoleForSite {
   my ($self, $role, $site) = @_;
-  my ($json_siteroles, $siteroles, @users, $fh);
+  my ($json_siteroles, $siteroles, @users);
   {
-    open($fh, $self->{SITE_RESPONSIBILITIES});
+    open(F, $self->{SITE_RESPONSIBILITIES});
     local $/ = undef;
-    $json_siteroles = <$fh>;
+    $json_siteroles = <F>;
   }
   $siteroles = decode_json($json_siteroles);
-  close $fh;
   # Get user info from people API dump:
-  my ($json_people, $people, $fh, $contact);
+  my ($json_people, $people, $contact);
   {
-    open($fh, $self->{PEOPLE});
+    open(F, $self->{PEOPLE});
     local $/ = undef;
-    $json_people = <$fh>;
+    $json_people = <F>;
   }
   $people = decode_json($json_people);
-  close $fh;
   foreach my $entry (@{$siteroles->{'result'}}) {
     if ( $site eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) {
       # look up user, assuming login name is unique:
@@ -339,9 +334,9 @@ sub getUsersWithRoleForSite {
             'FORENAME'  => ${$_}[2],
             'SURNAME' => ${$_}[3],
             'DN' => ${$_}[4],
-          }
+          };
           push @users, $contact;
-          continue
+          continue;
         }
       }
     }
@@ -359,14 +354,13 @@ sub getUsersWithRoleForSite {
 
 sub getPhedexNodeToSiteMap {
   my $self = shift;
-  my ($json_names, $names, $fh);
+  my ($json_names, $names);
   {
-    open($fh, $self->{SITE_NAMES});
+    open(F, $self->{SITE_NAMES});
     local $/ = undef;
-    $json_names = <$fh>;
+    $json_names = <F>;
   }
   $names = decode_json($json_names);
-  close $fh;
   my %map;
   foreach (@{$names->{'result'}}) {
     if ( ${$_}[0] eq 'phedex' ) {
@@ -431,14 +425,13 @@ sub getUserInfoFromDN {
   my $self = shift;
   my $dn = shift;
   return 0 if ! defined $dn;
-  my ($json_people, $people, $fh);
+  my ($json_people, $people);
   {
-    open($fh, $self->{PEOPLE});
+    open(F, $self->{PEOPLE});
     local $/ = undef;
-    $json_people = <$fh>;
+    $json_people = <F>;
   }
   $people = decode_json($json_people);
-  close $fh;
   foreach (@{$people->{'result'}}) {
     if ( ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
