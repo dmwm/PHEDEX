@@ -341,6 +341,8 @@ sub getUsersWithRoleForSite {
       }
     }
   } # end of site responsibilities loop  
+  &PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "site_contacts",
+    "In getUsersWithRoleForSite: role = " . $role . " site = " . $site);
   return @users;
 }
 
