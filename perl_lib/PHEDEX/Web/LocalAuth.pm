@@ -337,7 +337,6 @@ sub getUsersWithRoleForSite {
           };
           push @users, $contact;
         }
-        continue;
       }
     }
   } # end of site responsibilities loop  
