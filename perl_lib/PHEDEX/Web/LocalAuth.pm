@@ -435,9 +435,8 @@ sub getUserInfoFromDN {
   }
   $people = decode_json($json_people);
   foreach (@{$people->{'result'}}) {
-    #die "Die in getUserInfoFromDN for undefined DN for user " . ${$_}[0] if not defined ${$_}[4];
-    continue if not defined ${$_}[4];
-    if ( ${$_}[4] eq $dn ) {
+    #die "Die in getUserInfoFromDN for undefined DN for user " . ${$_}[0] if not defined ${$_}[4];    
+    if ( (defined ${$_}[4]) && ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
       $self->{USERSURNAME} = ${$_}[2];
       $self->{USERFORENAME} = ${$_}[3];
