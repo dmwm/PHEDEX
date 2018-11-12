@@ -283,7 +283,7 @@ sub _send_request_create_email
     if (defined $$data{'GROUP'})
     {
         @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $$data{'GROUP'});
-        &PHEDEX::Web::Util::dump_debug_data_to_file(\%args, "group_contacts",
+        &PHEDEX::Web::Util::dump_debug_data_to_file(\@group_data_managers, "group_contacts",
 -        "Dumping group_data_managers from PHEDEX::Core::Mail::_send_request_create_email for group: " . $$data{'GROUP'});
         # @group_data_managers = () if ! defined @group_data_managers;
         foreach (@group_data_managers)
