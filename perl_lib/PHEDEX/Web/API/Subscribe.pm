@@ -228,7 +228,7 @@ sub subscribe
         PHEDEX::Core::Mail::testing_mail($core->{CONFIG}{TESTING_MAIL});
       }
       &PHEDEX::Web::Util::dump_debug_data_to_file(\%args, "group_contacts",
-        "Dumping arguments from PHEDEX::Web::API::Subscribe::subscribe ");
+        "Dumping arguments from PHEDEX::Web::API::Subscribe::subscribe and commit is: " . $commit;
       PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
     }
     
