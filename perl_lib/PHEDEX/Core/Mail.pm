@@ -280,6 +280,7 @@ sub _send_request_create_email
     # Get the Data Managers of this group
     my $group_data_manager = "";
     my @group_data_managers;
+    die "NRDEBUG 1 STOP in Core::Mail before getting data managers for a group";
     if (defined $$data{'GROUP'})
     {
         @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $$data{'GROUP'});

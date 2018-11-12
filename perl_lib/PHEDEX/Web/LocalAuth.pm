@@ -487,6 +487,7 @@ sub getUsersWithRoleForGroupObsoleted {
 # Will likely need a group-responsibilities API for this one. 
 sub getUsersWithRoleForGroup {
   my ($self, $role, $group) = @_;
+  die "NRDEBUG 2 STOP inside getUsersWithRoleForGroup for group $group";
   #return if $self->{BASIC};
   my $sql = qq{ select c.id, c.surname, c.forename, c.email,
 		         c.username, c.dn, c.phone1, c.phone2
