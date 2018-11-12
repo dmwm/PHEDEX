@@ -69,10 +69,12 @@ sub init {
                              site-names.json
                              site-responsibilities.json
                              people.json
+                             group-responsibilities.json
                            );
     foreach ( map (($self->{FILES_PATH} . $_ ), @required_files)) {
       -r $_  or die "Could not read file $_";
-    }
+      # FIXME: instead of dying print out a message that secmod can't be initialized 
+    } 
     # To minimize modification for the API changes, instead of passing every
     # file as configuration parameter, we add attribute for each file with a
     # full path based on the file name (e.g. SITE_NAMES for site-names.json):
@@ -499,6 +501,8 @@ sub getUsersWithRoleForGroup {
   while (my $user = $sth->fetchrow_hashref()) {
     push @users, $user;
   }
+  &PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "group_contacts",
+  "In getUsersWithRoleForGroup: role = " . $role . " group = " . $group);
   return @users;
 }
 
