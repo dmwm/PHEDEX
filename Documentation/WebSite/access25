@@ -2291,29 +2291,29 @@ sub generate
   my $signout_url = $self->{CONFIG}{SSL_SERVER_ROOT} . '/auth/logout';
 
 # Instead of calling SECMOD->init directly, trap errors with a timeout.
-  #my $mask      = POSIX::SigSet->new(&POSIX::SIGALRM);
-  #my $action    = POSIX::SigAction->new(sub { die "my private alarm" }, $mask);
-  #my $oldaction = POSIX::SigAction->new();
-  #POSIX::sigaction(&POSIX::SIGALRM, $action, $oldaction );
-  #eval {
-  #    alarm 10;
+  my $mask      = POSIX::SigSet->new(&POSIX::SIGALRM);
+  my $action    = POSIX::SigAction->new(sub { die "my private alarm" }, $mask);
+  my $oldaction = POSIX::SigAction->new();
+  POSIX::sigaction(&POSIX::SIGALRM, $action, $oldaction );
+  eval {
+      alarm 10;
       $$self{SECMOD}->init($self);
-  #    alarm 0;
-  #};
-  #POSIX::sigaction(&POSIX::SIGALRM, $oldaction); # restore original
-  #if ( $@ and $@ =~ /my private alarm/ ) {
-  #  my $feedbackurl =
-  #    "mailto:$$self{CONFIG}{FEEDBACK_MAIL}?subject="
-  #    . "PhEDEx%20web%20(SiteDB)%20is%20inaccessible";
-  #  print header(-type => 'text/html'),
-  #    "<center><div class='alert' style='background-color:#FFF0F5;border:1px solid #DC143C; text-align:center; max-width:50%; magrin:1em; padding:1em'>\n",
-  #    "<p>Timed out connecting to SiteDB, maybe there's a database problem?</p>\n",
-  #    " Please try again at another time, or if the problem persists,",
-  #    " <a href='$feedbackurl'>notify the administrators</a>.",
-  #    "</p>",
-  #    "</div></center>\n";
-  #  return;
-  #}
+      alarm 0;
+  };
+  POSIX::sigaction(&POSIX::SIGALRM, $oldaction); # restore original
+  if ( $@ and $@ =~ /my private alarm/ ) {
+    my $feedbackurl =
+      "mailto:$$self{CONFIG}{FEEDBACK_MAIL}?subject="
+      . "PhEDEx%20web%20(SiteDB)%20is%20inaccessible";
+    print header(-type => 'text/html'),
+      "<center><div class='alert' style='background-color:#FFF0F5;border:1px solid #DC143C; text-align:center; max-width:50%; magrin:1em; padding:1em'>\n",
+      "<p>Timed out connecting to SiteDB, maybe there's a database problem?</p>\n",
+      " Please try again at another time, or if the problem persists,",
+      " <a href='$feedbackurl'>notify the administrators</a>.",
+      "</p>",
+      "</div></center>\n";
+    return;
+  }
   if ( $@ ) { die $@; }
 
   # Find the class scope index of this page instance.
@@ -2325,8 +2325,6 @@ sub generate
       return;
   }
   
-  &PHEDEX::Web::Util::dump_debug_data_to_file($self, "web_secmod",
-    "Dump secmod from access25::generate");
   # Check if the client's identity was verified
   if ($$self{SECMOD}->isAuthenticated())
   {
