@@ -379,9 +379,9 @@ sub initSecurity
     my @nodes = PHEDEX::Web::Util::fetch_nodes($self);
     $self->{SECMOD}->setTestNodes(\@nodes);
   }
-  my %auth_nodes = PHEDEX::Web::Util::fetch_nodes($self,
-    web_user_auth => 'Data Manager',
-    with_ids => 1);
+  #my %auth_nodes = PHEDEX::Web::Util::fetch_nodes($self,
+  #  web_user_auth => 'Data Manager',
+  #  with_ids => 1);
   return 1;
 }
 
