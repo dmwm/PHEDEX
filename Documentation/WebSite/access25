@@ -10,7 +10,8 @@ our $TESTING = 0;
 our $TESTING_MAIL = undef;
 our $DBS_LOOKUP = undef;
 
-use PHEDEX::Web::FrontendAuth;
+#use PHEDEX::Web::FrontendAuth;
+use PHEDEX::Web::LocalAuth;
 use PHEDEX::Core::SQL;
 use Data::Dumper;
 use POSIX qw(SIGALRM);
@@ -583,16 +584,18 @@ sub fetch_identity
     if (! $secmodUser ) {
 	if (! $$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ) { return; }
 
-	$$id{SECMOD_ID} = $$self{SECMOD}->getID();
+	#$$id{SECMOD_ID} = $$self{SECMOD}->getID();
 	$$id{NAME} = $$self{SECMOD}->getUsername();
 	$$id{EMAIL} = $$self{SECMOD}->getEmail();
 
 	if ($$self{SECMOD}->isCertAuthenticated()) {
-	    @to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);
+        #@to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);
+        @to_sync = qw(NAME EMAIL DN CERTIFICATE);
 	    $$id{DN} = $$self{SECMOD}->getDN();
 	    $$id{CERTIFICATE} = $$self{SECMOD}->getCert();
 	} elsif ($$self{SECMOD}->isPasswdAuthenticated()) {
-	    @to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
+        #@to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
+        @to_sync = qw(NAME EMAIL USERNAME);
 	    $$id{USERNAME} = $$self{SECMOD}->getUsername();
 	}
     } else {
@@ -601,17 +604,20 @@ sub fetch_identity
 	$$id{EMAIL} = $$secmodUser{EMAIL};
 	$$id{DN} = $$secmodUser{DN};
 	$$id{USERNAME} = $$secmodUser{USERNAME};
-	@to_sync = qw(SECMOD_ID NAME EMAIL DN USERNAME);
+    #@to_sync = qw(SECMOD_ID NAME EMAIL DN USERNAME);
+    @to_sync = qw(NAME EMAIL DN USERNAME);
     }
     my $now = time();
 
     # Look up a logged identity by either the SecurityModule ID or the DN
     my $q = &dbexec($$self{DBH},
-		    qq{ select id, secmod_id, name, email, dn, certificate, username
-			    from t_adm_identity where secmod_id = :secmod_id or dn = :dn
-			    order by time_update desc },
-		    ':secmod_id' => $$id{SECMOD_ID},
-		    ':dn' => ($$id{DN} || 'dummy')
+            qq{ select id, secmod_id, name, email, dn, certificate, username
+                from t_adm_identity where secmod_id = :secmod_id or dn = :dn
+                or username = :username
+                order by time_update desc },
+                ':secmod_id' => $$id{SECMOD_ID},
+                ':username' => ($$id{USERNAME} || 'dummy'),
+                ':dn' => ($$id{DN} || 'dummy')
 		    );
 
     my $logged_id = $q->fetchrow_hashref();
@@ -9231,26 +9237,14 @@ sub runme
   # Initialize the SecurityModule
   unless ($cgipage =~ /^XML/) {
       my %args;
-      if ($$config{SECMOD_CONFIG}) {
-	  # If a config file is given, we use that
-	  $args{CONFIG} = $$config{SECMOD_CONFIG};
+      if ($$config{SECMOD_FILES_PATH}) {
+        # If a local path is configured, use local files for initializing the security model:
+        $args{FILES_PATH} = $$config{SECMOD_FILES_PATH};
+        $args{HEADERS_IN} = $r->headers_in();
       } else {
-	  # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
-	  my $dbparam;
-	  eval {
-	      $dbparam = &parseDatabaseInfo($$config{DBPARAM}, 'SecurityModule');
-	  };
-	  if ($@ || !$dbparam) {
-	      die "no way to initialize SecurityModule:  either configure secmod-config ",
-	      "or provide SecurityModule section in the DBParam file",
-	      ($@ ? ": parse error: $@" : ""), "\n";
-	  }
-	  $args{DBNAME} = $$dbparam{DBH_DBNAME};
-	  $args{DBUSER} = $$dbparam{DBH_DBUSER};
-	  $args{DBPASS} = $$dbparam{DBH_DBPASS};
-          $args{HEADERS_IN} = $r->headers_in();
+        die "webpage has no way to initialize SecurityModule: configure secmod-files-path.";
       }
-      $page->{SECMOD} = new PHEDEX::Web::FrontendAuth({%args});
+      $page->{SECMOD} = new PHEDEX::Web::LocalAuth({%args});
   }
 
   # Generate the page
