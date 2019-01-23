@@ -60,7 +60,7 @@ sub init {
     } else {
       $self->{AUTHNSTATE} = 'none';
     }
-  } 
+  }
 
   if ( $self->{FILES_PATH} ) {
     # Assuming that all files live in the same location, we define
@@ -73,8 +73,8 @@ sub init {
                            );
     foreach ( map (($self->{FILES_PATH} . $_ ), @required_files)) {
       -r $_  or die "Could not read file $_";
-      # FIXME: instead of dying print out a message that secmod can't be initialized 
-    } 
+      # FIXME: instead of dying print out a message that secmod can't be initialized
+    }
     # To minimize modification for the API changes, instead of passing every
     # file as configuration parameter, we add attribute for each file with a
     # full path based on the file name (e.g. SITE_NAMES for site-names.json):
@@ -245,7 +245,7 @@ sub getSitesFromFrontendRolesObsolete
   $sql = qq{ select p.name phedex from phedex_node p
                join site s on p.site = s.id
                join site_cms_name_map cmap on cmap.site_id = s.id
-               join cms_name c on c.id = cmap.cms_name_id 
+               join cms_name c on c.id = cmap.cms_name_id
                where lower(c.name) = ? };
   $sth = $self->{DBHANDLE}->prepare($sql);
   foreach $role ( values %{$roles} ) {
@@ -274,7 +274,7 @@ sub urldecode {
 }
 
 # This is used with Data Manager and Site Admin roles for email notifications
-# Obsoleted implementation dependent on siteDB direct access 
+# Obsoleted implementation dependent on siteDB direct access
 # @params:  a role and a site
 # @return:  list of usernames
 sub getUsersWithRoleForSiteObsolete {
@@ -321,13 +321,13 @@ sub getUsersWithRoleForSite {
       # look up user, assuming login name is unique:
       # and return user data in a format defined by a siteDB query:
       # select c.id, c.surname, c.forename, c.email,c.username, c.dn
-      # retrieved with a fetchrow_hashref (see above the implementation 
+      # retrieved with a fetchrow_hashref (see above the implementation
       # of getUsersWithRoleForSiteObsolete )
-      # The People API format is: 
-      # {"desc": {"columns": ["username", "email", "forename", 
+      # The People API format is:
+      # {"desc": {"columns": ["username", "email", "forename",
       # "surname", "dn", "phone1", "phone2", "im_handle"]}, "result": [
       # ...
-      # ]} 
+      # ]}
       foreach (@{$people->{'result'}}) {
         if (${$_}[0] eq ${$entry}[0]) {
           $contact = {
@@ -341,7 +341,7 @@ sub getUsersWithRoleForSite {
         }
       }
     }
-  } # end of site responsibilities loop  
+  } # end of site responsibilities loop
   &PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "site_contacts",
     "In getUsersWithRoleForSite: role = " . $role . " site = " . $site);
   return @users;
@@ -378,7 +378,7 @@ sub getPhedexNodeToSiteMap {
   return %map;
 }
 # NR: hope this can be obsoleted and we can live without replacement,
-# as SiteDB ID is not exposed by any of its APIs. 
+# as SiteDB ID is not exposed by any of its APIs.
 # @param: user's DN
 # @return: user's ID
 sub getIDfromDNObsoleted {
@@ -436,7 +436,7 @@ sub getUserInfoFromDN {
   }
   $people = decode_json($json_people);
   foreach (@{$people->{'result'}}) {
-    #die "Die in getUserInfoFromDN for undefined DN for user " . ${$_}[0] if not defined ${$_}[4];    
+    #die "Die in getUserInfoFromDN for undefined DN for user " . ${$_}[0] if not defined ${$_}[4];
     if ( (defined ${$_}[4]) && ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
       $self->{USERSURNAME} = ${$_}[2];
@@ -462,7 +462,7 @@ sub reqAuthnPasswd {
   die PHEDEX::Web::Util::http_error(401,"Password authentication required");
 }
 
-# Getting rid of all direct access to the SiteDB 
+# Getting rid of all direct access to the SiteDB
 sub getUsersWithRoleForGroupObsoleted {
   my ($self, $role, $group) = @_;
   return if $self->{BASIC};
@@ -482,28 +482,50 @@ sub getUsersWithRoleForGroupObsoleted {
   return @users;
 }
 
-# NR FIXME:  allow this to break by not exiting for now.
-# Needs to be replaced by reading from tghe local dumps of SiteDB/CRIC APIs,
-# Will likely need a group-responsibilities API for this one. 
+# Map users/groups/roles using local secmod API dumps.
 sub getUsersWithRoleForGroup {
   my ($self, $role, $group) = @_;
-  die "NRDEBUG 2 STOP inside getUsersWithRoleForGroup for group $group";
-  #return if $self->{BASIC};
-  my $sql = qq{ select c.id, c.surname, c.forename, c.email,
-		         c.username, c.dn, c.phone1, c.phone2
-		    from contact c
-		    join group_responsibility gr on gr.contact = c.id
-		    join role r on r.id = gr.role
-		    join user_group g on g.id = gr.user_group
-		   where r.title = ? and g.name = ? };
-  my $sth = $self->{DBHANDLE}->prepare($sql);
-  $sth->execute($role, $group);
-  my @users;
-  while (my $user = $sth->fetchrow_hashref()) {
-    push @users, $user;
+  #die "NRDEBUG 2 STOP inside getUsersWithRoleForGroup for group $group";
+  my ($json_grouproles, $grouproles, @users);
+  {
+    open(F, $self->{GROUP_RESPONSIBILITIES});
+    local $/ = undef;
+    $json_grouproles = <F>;
   }
-  &PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "group_contacts",
-  "In getUsersWithRoleForGroup: role = " . $role . " group = " . $group);
+  $grouproles = decode_json($json_grouproles);
+  # Get user info from people API dump:
+  my ($json_people, $people, $contact);
+  {
+    open(F, $self->{PEOPLE});
+    local $/ = undef;
+    $json_people = <F>;
+  }
+  foreach my $entry (@{$grouproles->{'result'}}) {
+    if ( $group eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) {
+      # look up user, assuming login name is unique:
+      # and return user data in a format defined by a siteDB query:
+      # select c.id, c.surname, c.forename, c.email,c.username, c.dn
+      # retrieved with a fetchrow_hashref (see above the implementation
+      # of getUsersWithRoleForSiteObsolete )
+      # The People API format is:
+      # {"desc": {"columns": ["username", "email", "forename",
+      # "surname", "dn", "phone1", "phone2", "im_handle"]}, "result": [
+      # ...
+      # ]}
+      foreach (@{$people->{'result'}}) {
+        if (${$_}[0] eq ${$entry}[0]) {
+          $contact = {
+            'USERNAME'  => ${$_}[0],
+            'EMAIL' => ${$_}[1],
+            'FORENAME'  => ${$_}[2],
+            'SURNAME' => ${$_}[3],
+            'DN' => ${$_}[4],
+          };
+          push @users, $contact;
+        }
+      }
+    }
+  } # end of site responsibilities loop
   return @users;
 }
 
