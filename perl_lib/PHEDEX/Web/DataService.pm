@@ -88,8 +88,10 @@ sub handler
 sub parse_path {
   my $self = shift;
   my ($format,$db,$call,$path,$package); # = ("xml", "prod", undef);
-  $package = lc $ENV{PHEDEX_PACKAGE_NAME} || 'phedex';
-
+  $package = 'phedex';
+  if (defined $ENV{PHEDEX_PACKAGE_NAME} ) {
+    $package = lc $ENV{PHEDEX_PACKAGE_NAME};
+  }
   $path = lc $self->{PATH_INFO}; # || "xml/prod";
   if ( $package eq 'phedex' ) {
     $format = $1 if ($path =~ m!\G/([^/]+)!g);

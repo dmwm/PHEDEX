@@ -79,7 +79,8 @@ use strict;
 use base 'PHEDEX::Core::DB';
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Timing;
-use PHEDEX::Web::FrontendAuth;
+#use PHEDEX::Web::FrontendAuth;
+use PHEDEX::Web::LocalAuth;
 use PHEDEX::Web::Util;
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
@@ -87,24 +88,26 @@ use Digest::MD5;
 
 use Carp qw / longmess /;
 our (%params);
-%params = ( CALL => undef,
+%params = ( 
+            CALL => undef,
             VERSION => undef,
             DBCONFIG => undef,
-	    INSTANCE => undef,
-	    REQUEST_URL => undef,
+            INSTANCE => undef,
+            REQUEST_URL => undef,
             REMOTE_HOST => undef,
             USER_AGENT => undef,
-	    REQUEST_TIME => undef,
+            REQUEST_TIME => undef,
             REQUEST_METHOD => undef,
-	    SECMOD => undef,
-	    DEBUG => 0,
-	    CONFIG_FILE => undef,
+            SECMOD => undef,
+            DEBUG => 0,
+            CONFIG_FILE => undef,
             CONFIG => undef,
-	    SECMOD_CONFIG => undef,
-	    AUTHZ => undef,
+            SECMOD_CONFIG => undef,
+            SECMOD_FILES_PATH => undef,
+            AUTHZ => undef,
             REQUEST_HANDLER => undef,
-	    HEADERS_IN => undef,
-	    );
+            HEADERS_IN => undef
+          );
 
 # A map of API calls to data sources
 our $call_data = { };
@@ -339,9 +342,10 @@ sub initSecurity
   my $self = shift;
 
   my %args;
-  if ($self->{SECMOD_CONFIG}) {
-      # If a config file is given, we use that
-      $args{CONFIG} = $self->{SECMOD_CONFIG};
+
+  if ($self->{CONFIG}{SECMOD_FILES_PATH}) {
+      # If a local path is configured, use local files for initializing the security model:
+      $args{FILES_PATH} = $self->{CONFIG}{SECMOD_FILES_PATH};
   } else {
       # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
       my $config = $self->{CONFIG};
@@ -362,7 +366,8 @@ sub initSecurity
       $args{DBUSER} = $dbparam->{DBH_DBUSER};
       $args{DBPASS} = $dbparam->{DBH_DBPASS};
   }
-  my $secmod = new PHEDEX::Web::FrontendAuth({%args});
+  #my $secmod = new PHEDEX::Web::FrontendAuth({%args});
+  my $secmod = new PHEDEX::Web::LocalAuth({%args});
   if ( ! $secmod->init($self) )
   {
       die "cannot initialise security module\n";
@@ -374,7 +379,6 @@ sub initSecurity
     my @nodes = PHEDEX::Web::Util::fetch_nodes($self);
     $self->{SECMOD}->setTestNodes(\@nodes);
   }
-
   return 1;
 }
 
