@@ -490,7 +490,8 @@ sub auth_nodes
     # scope role, then build a list of nodes to check for based on the
     # site->node mapping in the SecurityModule
     if (!$global_scope && @auth_sites) {
-      @auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
+      #@auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
+      @auth_nodes = @{ $self->{SECMOD}->getSitesFromLocalRoles() };
     }
 
     # Get a list of nodes from the DB. 'X' nodes are obsolete nodes
@@ -576,7 +577,6 @@ sub fetch_nodes
                 $roles_ok = 1;
             }
         }
-
         my $global_admin = (exists $$roles{'admin'} &&
                             grep $_ eq 'phedex', @{$$roles{'admin'}}) || 0;
 
@@ -584,9 +584,7 @@ sub fetch_nodes
         $global_admin = 1 if (grep($_ eq 'pada admin', @to_check) &&
                               exists $$roles{'pada admin'} &&
                               grep($_ eq 'phedex', @{$$roles{'pada admin'}}));
-
         return unless ($roles && ($roles_ok || $global_admin));
-
         # If the user is not a global admin, make a list of sites and
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
@@ -594,7 +592,7 @@ sub fetch_nodes
             my %auth_sites;
             foreach my $role (@to_check) {
                 if (exists $$roles{$role}) {
-	            my $sites = $self->{SECMOD}->getSitesForUserRole($role);
+                    my $sites = $self->{SECMOD}->getSitesForUserRole($role);
                     foreach my $site (@{$sites}) {
                         $auth_sites{$site}++;
                     }
@@ -605,7 +603,6 @@ sub fetch_nodes
             return unless @auth_nodes;
         }
     }
-
     my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
     my $q = &dbexec($$self{DBH}, $sql);
 
@@ -746,6 +743,18 @@ sub error_document
         return sprintf($error_document, $error, $http_status{$error}, $error, $http_status{$error}, $message);
     }
     return undef;
+}
+# for debugging purpose only 
+# will dump the passed by reference data structure with timestamp and comment 
+# into a file in a local /tmp/ directory
+sub dump_debug_data_to_file
+{ 
+    my ($data, $filename, $comment) = @_;
+    open( my $fh, '>>', '/tmp/phedex_debug_dump/' . $filename );
+    print $fh " ========= \n Time now: \n" . localtime time();
+    print $fh "\n ========= " . $comment ." \n";
+    print $fh Dumper($data);
+    close $fh;
 }
 
 1;
