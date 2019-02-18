@@ -256,6 +256,7 @@ sub getPhedexNodeToSiteMap {
   foreach ( @{$ExtraNodes} ) {
     ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%% unless $map{$_};
   }
+  #PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemap", "Results of PHEDEX::Web::FrontendAuth::getPhedexNodeToSiteMap");
   return %map;
 }
 

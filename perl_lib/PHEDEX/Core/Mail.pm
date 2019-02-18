@@ -117,7 +117,7 @@ sub send_email
 	&& ref $args{to} eq 'ARRAY') {
 	my @uniquecc;
 	foreach my $mail (@{$args{cc}}) {
-	    push @uniquecc, $mail unless grep $_ eq $mail, @{$args{to}};	    
+	    push @uniquecc, $mail unless grep $_ eq $mail, @{$args{to}};
 	}
 	$args{cc} = [ @uniquecc ];
     } elsif (exists $args{cc} && ref $args{cc} eq 'ARRAY'
@@ -129,7 +129,7 @@ sub send_email
     } elsif (exists $args{cc}) {
 	delete $args{cc} if $args{cc} eq $args{to};
     }
-    
+
     foreach (qw(from to cc replyto)) {
 	if (exists $args{$_} && ref $args{$_} eq 'ARRAY') {
 	    $args{$_} = join(', ', @{$args{$_}});
@@ -137,7 +137,7 @@ sub send_email
 	    $args{$_} = '';
 	}
     }
-    
+
     foreach (qw(from to cc replyto)) {
 	next unless exists $args{$_};
 	return 0 unless &validlist($args{$_});
@@ -174,7 +174,7 @@ sub send_email
       }
 #     return 0;
     };
-    
+
     return %args;
 }
 
@@ -443,7 +443,7 @@ ENDEMAIL
      $start_time
 
 $special_message
- 
+
 This mail has also been sent to the requestor, the PhEDEx global
 admins, and the site admins of the relevant sites.
 
@@ -460,7 +460,7 @@ $global_admin
 Yours truly,
   PhEDEx Transfer Request Web Form
 ENDEMAIL
-    
+
 $$self{CONFIG}{FEEDBACK_MAIL} ||= 'cms-phedex-admins@cern.ch';
 &send_email(subject => "PhEDEx $request_type ($instance instance, RID $rid)",
 	   to => [ @to ],
@@ -501,7 +501,7 @@ sub send_request_update_email
     foreach my $node (@action_nodes) {
 	$sites{ $node_sites{$node} } = 1 if exists $node_sites{$node};
     }
-    
+
     # Get the list of Data Managers affected by this request
     my @data_managers;
     foreach my $site (keys %sites) {
@@ -518,7 +518,7 @@ sub send_request_update_email
     my $creator_email = $$data{'REQUESTED_BY'}{'EMAIL'};
     my $detail_url = $self->myurl(page => 'Request::View', request => $rid, fullurl => 1);
     my $admin_email = $$self{SECMOD}->getEmail();
-    my $msg_comments = ($comments ? "\nThe person who handled this had the following comments:\n\n\"$comments\"\n" 
+    my $msg_comments = ($comments ? "\nThe person who handled this had the following comments:\n\n\"$comments\"\n"
 			: '');
     my @cc = map { $$_{EMAIL} } @data_managers, @site_admins;
     my $nodes_str = join(', ', sort grep($$node_actions{$_} ne 'null', keys %$node_actions));
