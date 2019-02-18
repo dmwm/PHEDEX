@@ -36,10 +36,11 @@ Makes and approves a transfer request, creating data subscriptions.
  group          group the request is for.  Default is undefined.
  time_start     starting time for dataset-level request. Default is undefined (all blocks in dataset)
  request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
- no_mail        'y' or 'n' (default), if 'n', a email is sent to
-                requestor, datamanagers, site admins, and global admins
- comments	other information to attach to this request, for whatever
-		reason.
+ no_mail        'y' or 'n', by default is set to an opposite value of the request_only parameter.
+                If request_only='n' (auto-approved), no_mail is set to 'y'. Otherwise, no_mail='n', and
+                email notification is sent to requestor, data managers, site admins, and global admins
+
+ comments       other information to attach to this request, for whatever reason.
 
 =head2 Input
 
@@ -56,6 +57,7 @@ sub duration { return 0; }
 sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return subscribe(@_); }
+sub negate {my %map = ('y'=>'n', 'n'=>'y'); return $map{$_[0]}}
 sub subscribe
 {
     my ($core, %args) = @_;
@@ -66,7 +68,7 @@ sub subscribe
     $args{custodial} ||= 'n';
     $args{request_only} ||= 'n';
     $args{level} ||= 'DATASET'; $args{level} = uc $args{level};
-    $args{no_mail} ||= 'n';
+    $args{no_mail} ||= negate ($args{request_only});
 
     # validation only, no to-upper
     my %p;
@@ -98,12 +100,12 @@ sub subscribe
     {
         die PHEDEX::Web::Util::http_error(400,$@);
     }
-                
+
     die PHEDEX::Web::Util::http_error(400,"group $args{group} is forbidden") if ($args{group} =~ m/^deprecated-/);
     # default values for options
     # check values of options
     my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2, 'reserved' => 3);
-    die PHEDEX::Web::Util::http_error(400,"unknown priority, allowed values are 'high', 'normal', 'low' or 'reserved'") 
+    die PHEDEX::Web::Util::http_error(400,"unknown priority, allowed values are 'high', 'normal', 'low' or 'reserved'")
 	unless exists $priomap{$args{priority}};
     $args{priority} = $priomap{$args{priority}}; # translate into numerical value
 
@@ -125,7 +127,7 @@ sub subscribe
       $auth = $core->getAuth();
     }
     # ok, now try to make the request and subscribe it
-    my $nodes = [ arrayref_expand($args{node}) ];  
+    my $nodes = [ arrayref_expand($args{node}) ];
     my $now = &mytimeofday();
     my $data = uri_unescape($args{data});
     $args{comments} = uri_unescape($args{comments});
@@ -149,7 +151,7 @@ sub subscribe
 							    $identity->{ID},
 							    "Remote host" => $core->{REMOTE_HOST},
 							    "User agent"  => $core->{USER_AGENT} );
-   
+
 	@valid_args = &PHEDEX::RequestAllocator::Core::validateRequest($core, $data, $nodes,
 								       TYPE => 'xfer',
 								       LEVEL => $args{level},
@@ -179,9 +181,9 @@ sub subscribe
 			die PHEDEX::Web::Util::http_error(400,"You are not authorised to subscribe data to node $node->{NODE}");
 		    }
 		    # Set the decision
-		    &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, 
+		    &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid,
 									$node->{NODE_ID}, 'y', $client_id, $now);
-		    
+
 		    # Add the subscriptions
 		    if ($node->{POINT} eq 'd') {
 			# Add the subscription parameter set (or retrieve it if existing)
@@ -197,7 +199,7 @@ sub subscribe
 			&PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($core, $paramid, $node->{NODE_ID}, $now);
 		    # Remove the subcriptions for the move source
 		    } elsif ($node->{POINT} eq 's') {
-			&PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($core, $rid, 
+			&PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($core, $rid,
 											   $node->{NODE_ID}, $now);
 		    }
 		}
@@ -227,9 +229,11 @@ sub subscribe
         PHEDEX::Core::Mail::testing_mode('on');
         PHEDEX::Core::Mail::testing_mail($core->{CONFIG}{TESTING_MAIL});
       }
+      &PHEDEX::Web::Util::dump_debug_data_to_file(\%args, "group_contacts",
+        "Dumping arguments from PHEDEX::Web::API::Subscribe::subscribe and commit is: " . $commit);
       PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
     }
-    
+
     # for output, we return a list of the generated request IDs
     my @req_ids = map { { id => $_ } } keys %$requests;
     return { request_created  => \@req_ids };
