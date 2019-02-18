@@ -60,11 +60,7 @@ sub init {
     } else {
       $self->{AUTHNSTATE} = 'none';
     }
-<<<<<<< HEAD
-  } 
-=======
   }
->>>>>>> no_sitedb
 
   if ( $self->{FILES_PATH} ) {
     # Assuming that all files live in the same location, we define
@@ -77,13 +73,8 @@ sub init {
                            );
     foreach ( map (($self->{FILES_PATH} . $_ ), @required_files)) {
       -r $_  or die "Could not read file $_";
-<<<<<<< HEAD
-      # FIXME: instead of dying print out a message that secmod can't be initialized 
-    } 
-=======
       # FIXME: instead of dying print out a message that secmod can't be initialized
     }
->>>>>>> no_sitedb
     # To minimize modification for the API changes, instead of passing every
     # file as configuration parameter, we add attribute for each file with a
     # full path based on the file name (e.g. SITE_NAMES for site-names.json):
@@ -254,11 +245,7 @@ sub getSitesFromFrontendRolesObsolete
   $sql = qq{ select p.name phedex from phedex_node p
                join site s on p.site = s.id
                join site_cms_name_map cmap on cmap.site_id = s.id
-<<<<<<< HEAD
-               join cms_name c on c.id = cmap.cms_name_id 
-=======
                join cms_name c on c.id = cmap.cms_name_id
->>>>>>> no_sitedb
                where lower(c.name) = ? };
   $sth = $self->{DBHANDLE}->prepare($sql);
   foreach $role ( values %{$roles} ) {
@@ -287,11 +274,7 @@ sub urldecode {
 }
 
 # This is used with Data Manager and Site Admin roles for email notifications
-<<<<<<< HEAD
-# Obsoleted implementation dependent on siteDB direct access 
-=======
 # Obsoleted implementation dependent on siteDB direct access
->>>>>>> no_sitedb
 # @params:  a role and a site
 # @return:  list of usernames
 sub getUsersWithRoleForSiteObsolete {
@@ -338,15 +321,6 @@ sub getUsersWithRoleForSite {
       # look up user, assuming login name is unique:
       # and return user data in a format defined by a siteDB query:
       # select c.id, c.surname, c.forename, c.email,c.username, c.dn
-<<<<<<< HEAD
-      # retrieved with a fetchrow_hashref (see above the implementation 
-      # of getUsersWithRoleForSiteObsolete )
-      # The People API format is: 
-      # {"desc": {"columns": ["username", "email", "forename", 
-      # "surname", "dn", "phone1", "phone2", "im_handle"]}, "result": [
-      # ...
-      # ]} 
-=======
       # retrieved with a fetchrow_hashref (see above the implementation
       # of getUsersWithRoleForSiteObsolete )
       # The People API format is:
@@ -354,7 +328,6 @@ sub getUsersWithRoleForSite {
       # "surname", "dn", "phone1", "phone2", "im_handle"]}, "result": [
       # ...
       # ]}
->>>>>>> no_sitedb
       foreach (@{$people->{'result'}}) {
         if (${$_}[0] eq ${$entry}[0]) {
           $contact = {
@@ -368,11 +341,7 @@ sub getUsersWithRoleForSite {
         }
       }
     }
-<<<<<<< HEAD
-  } # end of site responsibilities loop  
-=======
   } # end of site responsibilities loop
->>>>>>> no_sitedb
   &PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "site_contacts",
     "In getUsersWithRoleForSite: role = " . $role . " site = " . $site);
   return @users;
@@ -409,11 +378,7 @@ sub getPhedexNodeToSiteMap {
   return %map;
 }
 # NR: hope this can be obsoleted and we can live without replacement,
-<<<<<<< HEAD
-# as SiteDB ID is not exposed by any of its APIs. 
-=======
 # as SiteDB ID is not exposed by any of its APIs.
->>>>>>> no_sitedb
 # @param: user's DN
 # @return: user's ID
 sub getIDfromDNObsoleted {
@@ -471,11 +436,7 @@ sub getUserInfoFromDN {
   }
   $people = decode_json($json_people);
   foreach (@{$people->{'result'}}) {
-<<<<<<< HEAD
-    #die "Die in getUserInfoFromDN for undefined DN for user " . ${$_}[0] if not defined ${$_}[4];    
-=======
     #die "Die in getUserInfoFromDN for undefined DN for user " . ${$_}[0] if not defined ${$_}[4];
->>>>>>> no_sitedb
     if ( (defined ${$_}[4]) && ${$_}[4] eq $dn ) {
       $self->{USEREMAIL} = ${$_}[1];
       $self->{USERSURNAME} = ${$_}[2];
@@ -501,11 +462,7 @@ sub reqAuthnPasswd {
   die PHEDEX::Web::Util::http_error(401,"Password authentication required");
 }
 
-<<<<<<< HEAD
-# Getting rid of all direct access to the SiteDB 
-=======
 # Getting rid of all direct access to the SiteDB
->>>>>>> no_sitedb
 sub getUsersWithRoleForGroupObsoleted {
   my ($self, $role, $group) = @_;
   return if $self->{BASIC};
@@ -525,30 +482,6 @@ sub getUsersWithRoleForGroupObsoleted {
   return @users;
 }
 
-<<<<<<< HEAD
-# NR FIXME:  allow this to break by not exiting for now.
-# Needs to be replaced by reading from tghe local dumps of SiteDB/CRIC APIs,
-# Will likely need a group-responsibilities API for this one. 
-sub getUsersWithRoleForGroup {
-  my ($self, $role, $group) = @_;
-  die "NRDEBUG 2 STOP inside getUsersWithRoleForGroup for group $group";
-  #return if $self->{BASIC};
-  my $sql = qq{ select c.id, c.surname, c.forename, c.email,
-		         c.username, c.dn, c.phone1, c.phone2
-		    from contact c
-		    join group_responsibility gr on gr.contact = c.id
-		    join role r on r.id = gr.role
-		    join user_group g on g.id = gr.user_group
-		   where r.title = ? and g.name = ? };
-  my $sth = $self->{DBHANDLE}->prepare($sql);
-  $sth->execute($role, $group);
-  my @users;
-  while (my $user = $sth->fetchrow_hashref()) {
-    push @users, $user;
-  }
-  &PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "group_contacts",
-  "In getUsersWithRoleForGroup: role = " . $role . " group = " . $group);
-=======
 # Map users/groups/roles using local secmod API dumps.
 sub getUsersWithRoleForGroup {
   my ($self, $role, $group) = @_;
@@ -593,7 +526,6 @@ sub getUsersWithRoleForGroup {
       }
     }
   } # end of site responsibilities loop
->>>>>>> no_sitedb
   return @users;
 }
 
