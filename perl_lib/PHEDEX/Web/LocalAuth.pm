@@ -342,8 +342,8 @@ sub getUsersWithRoleForSite {
       }
     }
   } # end of site responsibilities loop
-  &PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "site_contacts",
-    "In getUsersWithRoleForSite: role = " . $role . " site = " . $site);
+  #&PHEDEX::Web::Util::dump_debug_data_to_file(\@users, "site_contacts",
+  #  "In getUsersWithRoleForSite: role = " . $role . " site = " . $site);
   return @users;
 }
 
@@ -373,8 +373,8 @@ sub getPhedexNodeToSiteMap {
   foreach ( @{$ExtraNodes} ) {
     ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%% unless $map{$_};
   }
-  &PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemap",
-    "Dump sitemap from getPhedexNodeToSiteMap ");
+  #&PHEDEX::Web::Util::dump_debug_data_to_file(\%map, "sitemap",
+  #  "Dump sitemap from getPhedexNodeToSiteMap ");
   return %map;
 }
 # NR: hope this can be obsoleted and we can live without replacement,
@@ -485,7 +485,6 @@ sub getUsersWithRoleForGroupObsoleted {
 # Map users/groups/roles using local secmod API dumps.
 sub getUsersWithRoleForGroup {
   my ($self, $role, $group) = @_;
-  #die "NRDEBUG 2 STOP inside getUsersWithRoleForGroup for group $group";
   my ($json_grouproles, $grouproles, @users);
   {
     open(F, $self->{GROUP_RESPONSIBILITIES});
