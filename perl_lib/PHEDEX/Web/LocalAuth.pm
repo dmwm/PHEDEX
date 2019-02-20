@@ -499,6 +499,7 @@ sub getUsersWithRoleForGroup {
     local $/ = undef;
     $json_people = <F>;
   }
+  $people = decode_json($json_people);
   foreach my $entry (@{$grouproles->{'result'}}) {
     if ( $group eq ${$entry}[1]  &&  $role eq ${$entry}[2] ) {
       # look up user, assuming login name is unique:
