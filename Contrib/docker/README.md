@@ -7,6 +7,7 @@ To run phedex server in a container :
     nohup docker run --name phedex-server phedex-agents &
 
 To login to the server (wait a few secs until server starts):
+
     sleep 10
     docker exec -it phedex-server /bin/bash
 
