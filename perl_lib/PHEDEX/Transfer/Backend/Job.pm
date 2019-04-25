@@ -372,6 +372,16 @@ sub PrepareJson
   #some clean up to avoid mis-interpretation of null values
   foreach (@jobfiles) { delete $_->{checksums} unless (defined $_->{checksums}); }
 
+  foreach (@jobfiles) {
+    if ($_->{destinations}[0] =~ /^davs:/) {
+      $_->{'metadata'} = {
+          'source-issuer' => 'https://scitokens.org/cms',
+          'dest-issuer' => 'https://scitokens.org/cms'
+      };
+    }
+  }
+
+
   my $local_client = qx/fts-transfer-submit --version --service http| cut -d':' -f2|cut -d' ' -f2/;
   chomp $local_client;
   my $jobparams = {
