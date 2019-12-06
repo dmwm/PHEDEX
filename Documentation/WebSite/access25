@@ -1676,7 +1676,7 @@ sub head
 
     print { $$self{FH} } "<thead>\n";
     print { $$self{FH} } "<tr>";
-    print { $$self{FH} } "<th> . &escapeHTML($_) . </th>" foreach (@headers);
+    print { $$self{FH} } "<th>" . &escapeHTML($_) . "</th>" foreach (@headers);
     print { $$self{FH} } "</tr>\n";
     print { $$self{FH} } "</thead>\n";
     print { $$self{FH} } "<tbody>\n";
